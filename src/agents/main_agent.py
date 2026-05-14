@@ -281,16 +281,60 @@ class MainAgent(BaseAgent):
                 count += 1
         return count
 
+    @staticmethod
+    def _read_text_path(path_value: Any) -> str:
+        path_text = str(path_value or "").strip()
+        if not path_text:
+            return ""
+        path = Path(path_text)
+        if not path.exists():
+            return ""
+        try:
+            return path.read_text(encoding="utf-8")
+        except OSError:
+            return ""
+
+    def _report_has_current_step_section(self) -> bool:
+        section = str(self.meta.get("current_step_expected_section", "") or "").strip()
+        if not section:
+            return False
+        report_text = self._read_text_path(self.meta.get("report_path", ""))
+        return f"## {section}" in report_text
+
     def _research_artifact_stats(self) -> Dict[str, int]:
         findings_count = self._jsonl_count(self.meta.get("findings_path", ""))
         papers_count = self._jsonl_count(self.meta.get("papers_path", ""))
+        claims_count = self._jsonl_count(self.meta.get("claims_path", ""))
+        outline_chars = len(self._read_text_path(self.meta.get("outline_path", "")))
         min_findings = int(self.meta.get("min_findings", 0) or 0)
         return {
             "findings_count": findings_count,
             "papers_count": papers_count,
+            "claims_count": claims_count,
+            "outline_chars": outline_chars,
             "min_findings": min_findings,
             "findings_remaining": max(0, min_findings - findings_count),
         }
+
+    def _should_complete_claim_generation_from_artifacts(self, forced_final_decision: bool = False) -> bool:
+        if forced_final_decision or not self._is_research_step_mode():
+            return False
+        if str(self.meta.get("research_step_key", "") or "").strip() != "claim_generation":
+            return False
+        if self._has_running_entries():
+            return False
+        stats = self._research_artifact_stats()
+        return stats["claims_count"] >= 4 and self._report_has_current_step_section()
+
+    def _should_complete_outline_build_from_artifacts(self, forced_final_decision: bool = False) -> bool:
+        if forced_final_decision or not self._is_research_step_mode():
+            return False
+        if str(self.meta.get("research_step_key", "") or "").strip() != "outline_build":
+            return False
+        if self._has_running_entries():
+            return False
+        stats = self._research_artifact_stats()
+        return stats["outline_chars"] >= 200 and self._report_has_current_step_section()
 
     def _next_required_intent(self) -> str:
         if self._is_research_step_mode():
@@ -387,6 +431,25 @@ class MainAgent(BaseAgent):
         if not self.task_entries:
             return "尚未委派子任务。"
 
+        if str(self.meta.get("research_step_key", "") or "").strip() == "outline_build":
+            effective = self._effective_task_entries()
+            compact = [
+                "outline_build 阶段禁用完整子任务历史注入；只保留状态计数，避免把完整 tool output、trace 或 synthesis_digest 带入 prompt。",
+                f"delegated_subtasks={len(self.task_entries)}",
+                f"done_count={sum(1 for item in effective if item['status'] == 'done')}",
+            ]
+            recent = self.task_entries[-3:]
+            for entry in recent:
+                compact.append(
+                    (
+                        f"- status={entry.get('status', '')} "
+                        f"steps={entry.get('steps_taken', 0)} "
+                        f"tools={list(entry.get('tools', []) or [])[:6]} "
+                        f"message={clip(entry.get('message', ''), 180)}"
+                    )
+                )
+            return "\n".join(compact)
+
         lines: List[str] = []
         completed_items: List[str] = []
         issues: List[str] = []
@@ -475,6 +538,51 @@ class MainAgent(BaseAgent):
             return False
         return not self._effective_task_entries()
 
+    def _should_start_paper_enrichment(self, forced_final_decision: bool = False) -> bool:
+        if forced_final_decision or not self._is_research_step_mode():
+            return False
+        if str(self.meta.get("research_step_key", "") or "").strip() != "paper_enrichment":
+            return False
+        if self._next_required_intent() != "execute_current_step":
+            return False
+        return not self._effective_task_entries()
+
+    def _should_start_knowledge_synthesis(self, forced_final_decision: bool = False) -> bool:
+        if forced_final_decision or not self._is_research_step_mode():
+            return False
+        if str(self.meta.get("research_step_key", "") or "").strip() != "knowledge_synthesis":
+            return False
+        if self._next_required_intent() != "execute_current_step":
+            return False
+        return not self._effective_task_entries()
+
+    def _should_start_claim_generation(self, forced_final_decision: bool = False) -> bool:
+        if forced_final_decision or not self._is_research_step_mode():
+            return False
+        if str(self.meta.get("research_step_key", "") or "").strip() != "claim_generation":
+            return False
+        if self._next_required_intent() != "execute_current_step":
+            return False
+        return not self._effective_task_entries()
+
+    def _should_start_claim_debate(self, forced_final_decision: bool = False) -> bool:
+        if forced_final_decision or not self._is_research_step_mode():
+            return False
+        if str(self.meta.get("research_step_key", "") or "").strip() != "claim_debate":
+            return False
+        if self._next_required_intent() != "execute_current_step":
+            return False
+        return not self._effective_task_entries()
+
+    def _should_start_outline_build(self, forced_final_decision: bool = False) -> bool:
+        if forced_final_decision or not self._is_research_step_mode():
+            return False
+        if str(self.meta.get("research_step_key", "") or "").strip() != "outline_build":
+            return False
+        if self._next_required_intent() != "execute_current_step":
+            return False
+        return not self._effective_task_entries()
+
     def _extract_research_topic(self) -> str:
         text = str(self.instruction or "")
         for pattern in [
@@ -507,7 +615,20 @@ class MainAgent(BaseAgent):
         text = text.strip(" `\"'“”[]()")
         return re.sub(r"\s+", " ", text).strip()
 
-    def _extract_search_terms_from_scratchpad(self, limit: int = 24) -> List[str]:
+    def _add_search_term(self, terms: List[str], seen: set[str], value: str, limit: int) -> bool:
+        term = self._clean_search_term(value)
+        if not term or len(term) < 2:
+            return False
+        if term.lower() in {"赋能", "empowerment", "应用", "applications"}:
+            return False
+        key = term.lower()
+        if key in seen:
+            return False
+        seen.add(key)
+        terms.append(term)
+        return len(terms) >= limit
+
+    def _extract_search_terms_from_scratchpad(self, limit: int = 32) -> List[str]:
         text = self._read_research_scratchpad()
         if not text.strip():
             return []
@@ -522,126 +643,249 @@ class MainAgent(BaseAgent):
             "keyword",
             "query",
         )
+        active_search_block = False
         for raw in text.splitlines():
             line = raw.strip()
-            if not line or line.startswith("#"):
+            if not line:
+                active_search_block = False
+                continue
+            if line.startswith("#"):
+                active_search_block = False
                 continue
             lower = line.lower()
-            if not any(marker in lower for marker in keyword_markers):
+            is_marker_line = any(marker in lower for marker in keyword_markers)
+            if re.match(r"^(检索式|查询|search queries?|queries?)[:：]\s*$", line, flags=re.I):
+                active_search_block = True
                 continue
-            candidates = re.split(r"[,，;；、/]|(?:\s+\|\s+)", line)
+
+            if active_search_block and re.match(r"^[-*+\d.、]\s+", line):
+                if self._add_search_term(terms, seen, line, limit):
+                    return terms
+                continue
+
+            active_search_block = active_search_block and re.match(r"^[-*+\d.、]\s+", line) is not None
+            if not is_marker_line:
+                continue
+
+            candidates = re.split(r"[,，;；]|(?:\s+\|\s+)", line)
             for candidate in candidates:
-                term = self._clean_search_term(candidate)
-                if not term or len(term) < 2:
-                    continue
-                key = term.lower()
-                if key in seen:
-                    continue
-                seen.add(key)
-                terms.append(term)
-                if len(terms) >= limit:
+                if self._add_search_term(terms, seen, candidate, limit):
                     return terms
         return terms
 
-    @staticmethod
-    def _chunk_terms(terms: List[str], size: int) -> List[List[str]]:
-        chunks: List[List[str]] = []
-        for index in range(0, len(terms), max(1, size)):
-            chunk = terms[index : index + max(1, size)]
-            if chunk:
-                chunks.append(chunk)
-        return chunks
+    def _academic_queries_from_terms(self, terms: List[str], limit: int = 12) -> List[str]:
+        raw_terms = [str(term).strip() for term in terms if str(term).strip()]
+        joined = " ".join(raw_terms)
+        lower = joined.lower()
+        queries: List[str] = []
+        seen: set[str] = set()
 
-    def _literature_parallel_search_params(self) -> Dict[str, Any]:
+        def add(query: str) -> None:
+            text = re.sub(r"\s+", " ", str(query or "")).strip()
+            if not text:
+                return
+            key = text.lower()
+            if key in seen:
+                return
+            seen.add(key)
+            queries.append(text)
+
+        for term in raw_terms:
+            term_lower = term.lower()
+            if any(token in term_lower for token in ["intelligent reflecting surface", "reconfigurable intelligent surface", "integrated sensing", "isac", "ris"]):
+                add(term)
+
+        mentions_ris = any(token in joined for token in ["智能反射面", "智能反射表面", "可重构智能表面"]) or any(
+            token in lower for token in ["ris", "intelligent reflecting surface", "reconfigurable intelligent surface"]
+        )
+        mentions_isac = any(token in joined for token in ["通信感知一体化", "通感一体化", "感知通信一体化"]) or any(
+            token in lower for token in ["isac", "integrated sensing and communication"]
+        )
+        if mentions_ris and mentions_isac:
+            add('"reconfigurable intelligent surface" "integrated sensing and communication"')
+            add('"intelligent reflecting surface" "integrated sensing and communication"')
+            add('"RIS" "ISAC"')
+            add('"RIS-assisted" "integrated sensing and communication"')
+            add('"reconfigurable intelligent surface" "ISAC" beamforming')
+            add('"intelligent reflecting surface" "joint sensing and communication"')
+            add('"reconfigurable intelligent surface" survey "integrated sensing and communication"')
+        elif mentions_ris:
+            add('"reconfigurable intelligent surface" wireless communication')
+            add('"intelligent reflecting surface" survey')
+        elif mentions_isac:
+            add('"integrated sensing and communication" survey')
+            add('"ISAC" beamforming')
+
+        for term in raw_terms:
+            if len(queries) >= limit:
+                break
+            if re.search(r"[A-Za-z]", term) and len(term.split()) >= 3:
+                add(term)
+        return queries[:limit]
+
+    def _literature_search_task_params(self) -> Dict[str, Any]:
         topic = self._extract_research_topic()
         min_papers = int(self.meta.get("step_min_papers", 0) or self.meta.get("target_papers_for_literature_review", 30) or 30)
-        min_findings = int(self.meta.get("min_findings", 0) or 8)
-        per_task_papers = max(8, min(15, (min_papers + 2) // 3))
-        tools = [
-            "semantic_scholar_search",
-            "arxiv_search",
-            "crossref_lookup",
-            "dblp_lookup",
-            "record_paper",
-            "record_paper_note",
-            "record_finding",
-            "write_scratchpad_note",
-        ]
+        min_findings = int(self.meta.get("min_findings", 0) or 0)
         plan_terms = self._extract_search_terms_from_scratchpad()
-        if plan_terms:
-            plan_chunks = self._chunk_terms(plan_terms, 4)
-            group_names = ["Step 1 核心关键词", "Step 1 方法/场景关键词", "Step 1 扩展关键词", "Step 1 补充关键词"]
-            groups = [
-                {
-                    "name": group_names[index] if index < len(group_names) else f"Step 1 关键词组 {index + 1}",
-                    "queries": chunk,
-                    "focus": "严格基于 Step 1 scratchpad 生成的中英文关键词、检索式和研究线索检索论文。",
-                }
-                for index, chunk in enumerate(plan_chunks[:4])
+        queries = self._academic_queries_from_terms(plan_terms)
+        if not queries:
+            queries = [
+                f"{topic}",
+                '"reconfigurable intelligent surface" "integrated sensing and communication"',
+                '"RIS" "ISAC"',
+                '"reconfigurable intelligent surface" "ISAC" beamforming',
+                '"intelligent reflecting surface" "joint sensing and communication"',
+                '"reconfigurable intelligent surface" survey "integrated sensing and communication"',
             ]
-        else:
-            groups = [
-            {
-                "name": "核心组合",
-                "queries": [
-                    f"{topic}",
-                    '"reconfigurable intelligent surface" AND "integrated sensing and communication"',
-                    '"RIS" AND "ISAC"',
-                ],
-                "focus": "直接覆盖 RIS/智能反射面 与 ISAC/通信感知一体化 的核心论文，优先高引用期刊和综述。",
-            },
-            {
-                "name": "波束赋形与物理层优化",
-                "queries": [
-                    '"RIS" "ISAC" beamforming',
-                    '"reconfigurable intelligent surface" sensing communication beamforming',
-                    '"intelligent reflecting surface" "physical layer" sensing communication',
-                ],
-                "focus": "覆盖联合主动/被动波束赋形、功率控制、安全通信、CRB/检测概率等方法论文。",
-            },
-            {
-                "name": "场景与系统架构",
-                "queries": [
-                    '"RIS" "ISAC" vehicular network',
-                    '"reconfigurable intelligent surface" "vehicular" "integrated sensing and communication"',
-                    '"RIS aided" "sensing and communication" "UAV" OR "vehicular"',
-                ],
-                "focus": "覆盖车联网、UAV、低空网络、MIMO/MISO 等应用场景和系统架构论文。",
-            },
-            {
-                "name": "综述与相邻主题补充",
-                "queries": [
-                    '"reconfigurable intelligent surface" survey integrated sensing communication',
-                    '"integrated sensing and communication" survey "RIS"',
-                    '"intelligent reflecting surface" survey wireless communications sensing',
-                ],
-                "focus": "覆盖 survey、taxonomy、挑战与开放问题，用于补足背景和研究空白。",
-            },
-            ]
-        tasks: List[Dict[str, Any]] = []
-        for group in groups:
-            query_text = "\n".join(f"- {query}" for query in group["queries"])
-            instruction = (
+
+        query_text = "\n".join(f"- {query}" for query in queries)
+        return {
+            "task_instruction": (
                 "任务类型: research\n"
-                f"期望产出: 围绕“{group['name']}”检索并记录约 {per_task_papers} 篇合格论文，"
-                "同时记录 2-4 条有 source_url 的关键 finding，并为高相关论文记录轻量 paper note。\n"
-                "完成标准: 对每篇合格论文调用 record_paper；对高相关论文基于摘要/网页/PDF调用 record_paper_note；对关键结论调用 record_finding；"
-                "如果主工具失败，按工具串行兜底，不原样重复失败工具。\n"
-                f"具体任务: {group['focus']}\n"
-                "工具顺序: semantic_scholar_search -> arxiv_search -> crossref_lookup -> dblp_lookup。"
-                "同一工具 429/timeout/SSL 失败后立即切换下一工具或缩小查询。"
-            )
-            context = (
+                f"期望产出: 基于 Step 1 的检索式和研究主题顺序检索，立即记录候选论文到 candidates.jsonl，再筛选出至少 {min_papers} 篇合格论文进入 papers.jsonl/shortlist.jsonl。\n"
+                "完成标准: 先调用 batch_literature_search；该工具会按 OpenAlex -> Semantic Scholar -> arXiv -> Crossref -> DBLP 检索、写入 candidates、筛选 shortlist。Step 2 只负责检索、筛选和去重，不写跨论文 findings。\n"
+                "具体任务: 使用组合后的学术 query，而不是单个宽泛关键词。同一工具失败后由 batch 工具自动切换下一检索源。"
+            ),
+            "context": (
                 f"研究主题: {topic}\n"
-                f"本关键词组: {group['name']}\n"
-                f"候选查询:\n{query_text}\n"
-                "只处理本关键词组，不撰写报告章节，不进入后续 research step。"
-                "优先记录 DOI、arXiv ID、source_url、年份、venue、citation_count 和简短相关性说明。"
-                "paper note 至少包含 problem、method、scenario、main_findings、limitations、relevance_to_topic 和 evidence_source；"
-                "如果只能看到摘要，evidence_source 使用 abstract，避免声称已阅读全文。"
-            )
-            tasks.append({"task_instruction": instruction, "context": context, "tools": tools})
-        return {"tasks": tasks, "max_concurrency": min(len(tasks), int(self.meta.get("max_parallel_subtasks", 4) or 4))}
+                f"目标论文数: {min_papers}\n"
+                f"目标 findings 数: {min_findings}（Step 2 不写 findings；Step 3 负责聚类与研究空白 findings）\n"
+                f"主检索 query:\n{query_text}\n"
+                "第一步必须调用 batch_literature_search，参数 queries 使用上述列表，target_papers 使用目标论文数，per_query_limit 建议 8-10，record_findings=false。"
+            ),
+            "tools": [
+                "batch_literature_search",
+                "literature_screen",
+                "read_papers",
+                "write_scratchpad_note",
+                "write_report_section",
+            ],
+        }
+
+    def _paper_enrichment_task_params(self) -> Dict[str, Any]:
+        topic = self._extract_research_topic()
+        target_notes = int(self.meta.get("step_min_papers", 0) or self.meta.get("target_papers_for_literature_review", 30) or 30)
+        terms = self._extract_search_terms_from_scratchpad()
+        return {
+            "task_instruction": (
+                "任务类型: research\n"
+                "期望产出: 从 papers.jsonl/shortlist.jsonl 中选择前 N 篇高相关论文，基于摘要或元数据生成 paper_notes.jsonl 和 paper_cards.jsonl。"
+                "本阶段只做每篇论文的结构化阅读卡片，不做最终跨论文综合。\n"
+                "完成标准: 第一步必须调用 batch_paper_enrichment；随后只补充必要的 write_scratchpad_note 和 write_report_section。"
+            ),
+            "context": (
+                f"研究主题: {topic}\n"
+                f"目标 paper_notes 数: {target_notes}\n"
+                "priority_terms:\n"
+                + "\n".join(f"- {term}" for term in terms[:20])
+                + "\n"
+                "batch_paper_enrichment 会按摘要可用性、主题词匹配、RIS/ISAC 相关性和年份排序，并写入 knowledge-card 风格的 paper_cards.jsonl。"
+            ),
+            "tools": [
+                "batch_paper_enrichment",
+                "read_paper_notes",
+                "read_paper_cards",
+                "write_scratchpad_note",
+                "write_report_section",
+            ],
+        }
+
+    def _knowledge_synthesis_task_params(self) -> Dict[str, Any]:
+        topic = self._extract_research_topic()
+        return {
+            "task_instruction": (
+                "任务类型: research\n"
+                "期望产出: 基于 paper_cards.jsonl 聚类文献主题、识别 research gaps，生成 synthesis_digest.json，并写入当前报告章节。\n"
+                "完成标准: 第一步必须调用 batch_knowledge_synthesis；该工具会读取 paper_cards/paper_notes，生成 synthesis_digest.json，并把跨论文研究空白写入 findings.jsonl。"
+            ),
+            "context": (
+                f"研究主题: {topic}\n"
+                "本阶段不生成大纲，不写最终正文，不需要实验上下文。输出应服务于 Step 4/5 claims/debate 和 Step 6 outline。"
+            ),
+            "tools": [
+                "batch_knowledge_synthesis",
+                "read_synthesis_digest",
+                "read_paper_cards",
+                "read_findings",
+                "write_scratchpad_note",
+                "write_report_section",
+            ],
+        }
+
+    def _claim_generation_task_params(self) -> Dict[str, Any]:
+        topic = self._extract_research_topic()
+        return {
+            "task_instruction": (
+                "任务类型: research\n"
+                "期望产出: 4-8 个文献综述用研究空白、未来方向、局限性和综述观点，并写入 claims.jsonl。\n"
+                "完成标准: 第一步必须调用 batch_claim_generation；随后写入报告章节 ## 研究空白、未来方向与可检验问题。"
+            ),
+            "context": (
+                f"研究主题: {topic}\n"
+                "优先使用 synthesis_digest.json 中的 research gaps，再结合 paper_notes.jsonl 和 findings.jsonl 中已有证据；不要调用 read_sources，不要输出 Invalid action。"
+            ),
+            "tools": [
+                "batch_claim_generation",
+                "read_synthesis_digest",
+                "read_research_claims",
+                "write_report_section",
+                "write_scratchpad_note",
+            ],
+        }
+
+    def _claim_debate_task_params(self) -> Dict[str, Any]:
+        topic = self._extract_research_topic()
+        return {
+            "task_instruction": (
+                "任务类型: research\n"
+                "期望产出: 对 claims.jsonl 中的候选观点进行批量证据压力测试，生成 debate_log.md，"
+                "并写入报告章节 ## 观点辩论与优先级评估。\n"
+                "完成标准: 第一步必须调用 batch_claim_debate；不要逐条反复调用 record_claim_debate。"
+            ),
+            "context": (
+                f"研究主题: {topic}\n"
+                "batch_claim_debate 会读取 claims.jsonl 和 findings.jsonl，批量给出 keep/revise/downgrade/remove "
+                "倾向和证据风险，并负责写入 debate_log.md 与当前 step 报告章节。"
+            ),
+            "tools": [
+                "batch_claim_debate",
+                "read_claim_debate_log",
+                "read_research_claims",
+                "write_report_section",
+                "write_scratchpad_note",
+            ],
+        }
+
+    def _outline_build_task_params(self) -> Dict[str, Any]:
+        topic = self._extract_research_topic()
+        digest = self.meta.get("material_digest", {}) if isinstance(self.meta.get("material_digest", {}), dict) else {}
+        outline_context = digest.get("outline_context", {}) if isinstance(digest.get("outline_context", {}), dict) else {}
+        context_text = json.dumps(outline_context, ensure_ascii=False, indent=2)
+        if len(context_text) > 10000:
+            context_text = context_text[:10000] + f"... [truncated {len(context_text) - 10000} chars]"
+        return {
+            "task_instruction": (
+                "任务类型: write\n"
+                "期望产出: 基于压缩 outline_context 生成标准文献综述论文大纲 outline.md，"
+                "并写入报告章节 ## 结构化论文大纲。\n"
+                "完成标准: 只使用 outline_context 中的主题簇、research gaps、claims 摘要、debate 决策和少量代表 paper cards；"
+                "调用 build_research_outline 写入 outline.md，再调用 write_report_section 写入当前章节。"
+            ),
+            "context": (
+                f"研究主题: {topic}\n"
+                f"outline_context_path: {self.meta.get('outline_context_path', '')}\n"
+                "禁止读取或注入完整 synthesis_digest.json、完整 paper_cards.jsonl、完整 subtask history 或完整工具输出。\n"
+                "大纲必须包含：摘要、研究背景/目的与意义、研究现状、方法与主题综合、研究空白与未来方向、结论。\n"
+                "outline_context:\n"
+                f"{context_text}"
+            ),
+            "tools": [
+                "build_research_outline",
+                "write_report_section",
+                "write_scratchpad_note",
+            ],
+        }
 
     def _apply_delegate_defaults(
         self,
@@ -906,14 +1150,127 @@ class MainAgent(BaseAgent):
 
         prompt_meta = dict(self.meta)
         forced_final_decision = bool(kwargs.get("forced_final_decision", False))
-        if self._should_start_literature_parallel_search(forced_final_decision):
-            action_name = "delegate_tasks"
-            params = self._literature_parallel_search_params()
+        if self._should_complete_claim_generation_from_artifacts(forced_final_decision):
+            report_path = str(self.meta.get("report_path", "") or "")
+            findings_path = str(self.meta.get("findings_path", "") or "")
+            required_sections = list(self.meta.get("required_sections", []) or [])
+            action_name = "complete_task"
+            params = {
+                "executive_summary": "claim_generation artifacts already meet the step gate: claims.jsonl has enough claims and the expected report section exists.",
+                "status": "done",
+                "artifacts": [
+                    {"type": "data", "path": str(self.meta.get("claims_path", "") or ""), "description": "Candidate literature-review claims"},
+                    {"type": "report", "path": report_path, "description": "Current step report section"},
+                ],
+                "verification": ["claims.jsonl count >= 4", "current expected report section exists"],
+                "open_issues": [],
+                "confidence": "high",
+                "report_path": report_path,
+                "findings_path": findings_path,
+                "required_sections": required_sections,
+                "min_findings": int(self.meta.get("min_findings", 0) or 0),
+            }
+            decision = {
+                "action": action_name,
+                "reasoning": "claim_generation step artifacts are already sufficient, so complete the current step instead of continuing or retrying worker sessions.",
+                "params": params,
+            }
+            response = json.dumps(decision, ensure_ascii=False)
+        elif self._should_complete_outline_build_from_artifacts(forced_final_decision):
+            report_path = str(self.meta.get("report_path", "") or "")
+            findings_path = str(self.meta.get("findings_path", "") or "")
+            required_sections = list(self.meta.get("required_sections", []) or [])
+            action_name = "complete_task"
+            params = {
+                "executive_summary": "outline_build artifacts already meet the step gate: outline.md is populated and the expected report section exists.",
+                "status": "done",
+                "artifacts": [
+                    {"type": "file", "path": str(self.meta.get("outline_path", "") or ""), "description": "Compact literature-review outline"},
+                    {"type": "file", "path": str(self.meta.get("outline_context_path", "") or ""), "description": "Compressed outline context"},
+                    {"type": "report", "path": report_path, "description": "Current step report section"},
+                ],
+                "verification": ["outline.md is populated", "current expected report section exists"],
+                "open_issues": [],
+                "confidence": "high",
+                "report_path": report_path,
+                "findings_path": findings_path,
+                "required_sections": required_sections,
+                "min_findings": int(self.meta.get("min_findings", 0) or 0),
+            }
+            decision = {
+                "action": action_name,
+                "reasoning": "outline_build step artifacts are already sufficient, so complete the current step instead of continuing or retrying worker sessions.",
+                "params": params,
+            }
+            response = json.dumps(decision, ensure_ascii=False)
+        elif self._should_start_literature_parallel_search(forced_final_decision):
+            action_name = "delegate_task"
+            params = self._literature_search_task_params()
             decision = {
                 "action": action_name,
                 "reasoning": (
-                    "literature_search step uses deterministic keyword-group parallel search: "
-                    "parallelize by query group, and each subagent falls back through tools serially."
+                    "literature_search step uses a deterministic single search task: "
+                    "use Step 1 search expressions as academic queries and batch-record papers immediately."
+                ),
+                "params": params,
+            }
+            response = json.dumps(decision, ensure_ascii=False)
+        elif self._should_start_paper_enrichment(forced_final_decision):
+            action_name = "delegate_task"
+            params = self._paper_enrichment_task_params()
+            decision = {
+                "action": action_name,
+                "reasoning": (
+                    "paper_enrichment step uses a deterministic batch enrichment task: "
+                    "rank papers and write abstract-level paper_notes immediately."
+                ),
+                "params": params,
+            }
+            response = json.dumps(decision, ensure_ascii=False)
+        elif self._should_start_knowledge_synthesis(forced_final_decision):
+            action_name = "delegate_task"
+            params = self._knowledge_synthesis_task_params()
+            decision = {
+                "action": action_name,
+                "reasoning": (
+                    "knowledge_synthesis step uses a deterministic batch synthesis task: "
+                    "cluster paper cards, write synthesis_digest, and record cross-paper gaps."
+                ),
+                "params": params,
+            }
+            response = json.dumps(decision, ensure_ascii=False)
+        elif self._should_start_claim_generation(forced_final_decision):
+            action_name = "delegate_task"
+            params = self._claim_generation_task_params()
+            decision = {
+                "action": action_name,
+                "reasoning": (
+                    "claim_generation step uses a deterministic batch claim task: "
+                    "generate review claims from paper_notes and findings, then write the step section."
+                ),
+                "params": params,
+            }
+            response = json.dumps(decision, ensure_ascii=False)
+        elif self._should_start_claim_debate(forced_final_decision):
+            action_name = "delegate_task"
+            params = self._claim_debate_task_params()
+            decision = {
+                "action": action_name,
+                "reasoning": (
+                    "claim_debate step uses a deterministic batch debate task: "
+                    "review generated claims, write debate_log, then write the step section."
+                ),
+                "params": params,
+            }
+            response = json.dumps(decision, ensure_ascii=False)
+        elif self._should_start_outline_build(forced_final_decision):
+            action_name = "delegate_task"
+            params = self._outline_build_task_params()
+            decision = {
+                "action": action_name,
+                "reasoning": (
+                    "outline_build step uses compact outline_context only: "
+                    "generate a literature-review outline without injecting full synthesis/tool history."
                 ),
                 "params": params,
             }
@@ -952,7 +1309,7 @@ class MainAgent(BaseAgent):
         else:
             logger.log_to_file(
                 LogLevel.INFO,
-                "[MainAgent] Deterministic literature_search delegation selected; skipped LLM planning prompt.\n",
+                f"[MainAgent] Deterministic {self.meta.get('research_step_key')} delegation selected; skipped LLM planning prompt.\n",
             )
         if forced_final_decision and action_name != "complete_task":
             report_path = str(self.meta.get("report_path", "") or "")

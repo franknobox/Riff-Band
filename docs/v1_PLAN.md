@@ -75,7 +75,7 @@ STORM 的"多视角提问"和 AO 的多 Agent 辩论在理念上同源——都�
 │ Phase 1: 文献检索 (Literature Search)                       │
 │                                                             │
 │  Step 1  课题拆解        decompose_topic                    │
-│  Step 2  多源并行检索    literature_search ★ 按关键词组并行  │
+│  Step 2  多源顺序检索    literature_search  检索式驱动批量记录 │
 │  Step 2.5 论文轻量阅读   paper_enrichment  摘要/网页/PDF抽取 │
 │  Step 3  多视角知识综合  knowledge_synthesis ★ 跨角度交叉对比 │
 │                                                             │
@@ -104,7 +104,7 @@ STORM 的"多视角提问"和 AO 的多 Agent 辩论在理念上同源——都�
 
 区别于 AutoResearchClaw 的固定 6 角色——AO 的**每个步骤的 SubAgent 角色是根据该步骤的实际内容动态合成的**，从 Phase 1 到 Phase 4 全流程都有多 Agent 参与：
 
-- **Step 2 (文献检索)**：MainAgent 优先解析 Step 1 在 scratchpad 中生成的中英文关键词和检索式，按关键词组并行创建多个 SubAgent。每个 SubAgent 内部按工具顺序串行兜底（Semantic Scholar → arXiv → Crossref → DBLP），最后写入 `papers.jsonl`、`findings.jsonl`，并为高相关论文补充轻量 `paper_notes.jsonl`
+- **Step 2 (文献检索)**：MainAgent 优先解析 Step 1 在 scratchpad 中生成的 `检索式`，将其组合成学术 query，并启动单个检索任务。该任务先调用 `batch_literature_search`，按工具顺序串行兜底（Semantic Scholar → arXiv → Crossref → DBLP），检索到论文立即写入 `papers.jsonl`，避免 SubAgent 逐篇记录导致步数耗尽；随后补充 `findings.jsonl` 和检索覆盖说明。
 - **Step 2.5 (论文轻量阅读)**：不做完整向量库，先基于摘要、论文网页或本地 PDF 对高相关论文抽取 problem、method、scenario、main_findings、limitations、relevance_to_topic 和 evidence_source，写入 `paper_notes.jsonl`
 - **Step 3 (知识综合)**：多 Agent 从不同分析角度（方法论、实验结果、理论框架、应用场景）交叉对比检索结果，相互印证和质疑，识别研究空白和矛盾点
 - **Step 4 (观点生成)**：MainAgent 同时创建 3-5 个 SubAgent，每个持一种独立综述视角（方法论、应用场景、证据强度、争议点、跨学科），不同视角可用不同模型，独立生成研究空白、未来方向、可检验研究问题和综述观点后汇总

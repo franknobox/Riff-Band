@@ -169,6 +169,25 @@ class Test(unittest.TestCase):
         finally:
             shutil.rmtree(td, ignore_errors=True)
 
+    def test_complete_task_research_step_skips_report_gate(self):
+        tool = CompleteTaskTool()
+
+        result = asyncio.run(
+            tool(
+                executive_summary="current research step finished",
+                confidence="medium",
+                status="done",
+                report_path="missing.md",
+                findings_path="missing.jsonl",
+                required_sections=["Only This Step"],
+                min_findings=99,
+                orchestration={"research_step_mode": True},
+            )
+        )
+
+        self.assertTrue(result["quality_gate_passed"])
+        self.assertTrue(result["step_gate_deferred"])
+
     def test_scoped_environment_blocks_disallowed_tools(self):
         env = DummyEnv()
         scoped = ScopedEnvironment(base_env=env, allowed_tools={"readsource"}, max_steps=5)
@@ -186,14 +205,7 @@ class Test(unittest.TestCase):
 
     def test_main_agent_delegate_defaults(self):
         agent = MainOrchestratorAgent(sub_models=["m1"], meta={
-            "subtask_toolkits": {
-                "policy_research": ["read_source", "record_finding"],
-                "general_research": ["read_source"],
-            },
-            "model_routing": {
-                "policy_research": "m1",
-                "general_research": "m1",
-            },
+            "default_worker_tools": ["read_source", "record_finding"],
         })
         params = agent._apply_delegate_defaults({"task_instruction": "Analyze policy constraints", "context": ""})
         self.assertEqual(params["model"], "m1")

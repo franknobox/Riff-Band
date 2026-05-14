@@ -28,6 +28,8 @@ class ResearchGatekeeper:
         findings_count = len(read_jsonl(self.artifacts.findings))
         papers_count = len(read_jsonl(self.artifacts.papers))
         paper_notes_count = len(read_jsonl(self.artifacts.paper_notes))
+        paper_cards_count = len(read_jsonl(self.artifacts.paper_cards))
+        synthesis_digest_chars = len(self._read_text(self.artifacts.synthesis_digest))
 
         if not report_text and not scratchpad_text:
             issues.append("step produced neither report content nor scratchpad notes")
@@ -40,8 +42,17 @@ class ResearchGatekeeper:
             issues.append(f"findings count {findings_count} < step minimum {step.min_findings}")
         if getattr(step, "min_papers", 0) and papers_count < step.min_papers:
             issues.append(f"papers count {papers_count} < step minimum {step.min_papers}")
-        if step.key == "paper_enrichment" and papers_count and paper_notes_count == 0:
-            issues.append("paper_enrichment produced no paper_notes.jsonl records")
+        if step.key == "paper_enrichment":
+            if papers_count and paper_notes_count == 0:
+                issues.append("paper_enrichment produced no paper_notes.jsonl records")
+            if papers_count and paper_cards_count == 0:
+                issues.append("paper_enrichment produced no paper_cards.jsonl records")
+            elif step.min_papers and paper_notes_count < min(step.min_papers, papers_count):
+                issues.append(
+                    f"paper_notes count {paper_notes_count} < expected enrichment minimum {min(step.min_papers, papers_count)}"
+                )
+        if step.key == "knowledge_synthesis" and synthesis_digest_chars == 0:
+            issues.append("knowledge_synthesis produced no synthesis_digest.json content")
 
         return GateResult(
             passed=not issues,
@@ -52,6 +63,8 @@ class ResearchGatekeeper:
                 "findings_count": findings_count,
                 "papers_count": papers_count,
                 "paper_notes_count": paper_notes_count,
+                "paper_cards_count": paper_cards_count,
+                "synthesis_digest_chars": synthesis_digest_chars,
                 "report_chars": len(report_text),
                 "scratchpad_chars": len(scratchpad_text),
             },

@@ -1,45 +1,41 @@
-# 知识综合
+# 多视角知识综合
 
-将收集到的证据转化为主题、共识、争议和研究空白。
+将 `paper_cards.jsonl`、`paper_notes.jsonl` 和 `findings.jsonl` 转换为跨论文的主题、研究脉络、争议、空白和综述结构。本阶段才负责真正的跨论文综合。
 
 ## 阶段协议
 
 步骤：`knowledge_synthesis`
 
 目标：
-- 将 findings 和 papers 聚类成研究图景。
-- 区分共识、争议、方法限制和开放问题。
-- 为后续观点生成准备有证据支撑的材料。
-
-输入：
-- `findings.jsonl`、`papers.jsonl`、`paper_notes.jsonl` 和前序 scratchpad 笔记。
+- 优先基于 `paper_cards.jsonl` 聚类研究问题、方法路线、应用场景、关键结果和局限。
+- 在 `paper_cards.jsonl` 不足时，再用 `paper_notes.jsonl` 补充摘要级阅读信息。
+- 基于 `findings.jsonl` 回溯证据来源，避免无来源的宏观判断。
+- 输出可服务于后续观点生成、大纲构建和 LaTeX 文献综述写作的综合材料。
 
 推荐工具：
-- `read_findings`、`read_papers`：读取结构化证据和文献记录。
-- `read_paper_notes`：读取轻量论文阅读笔记，优先使用其中的 problem、method、main_findings、limitations。
-- `read_scratchpad`：读取课题拆解和检索笔记。
-- `synthesize_findings`：保存主题、共识、争议、空白和证据质量说明。
+- `batch_knowledge_synthesis`：主工具，读取论文卡片，生成 `synthesis_digest.json`，并写入跨论文研究空白 findings。
+- `read_paper_cards`：第一优先级，读取每篇论文的结构化知识卡片。
+- `read_paper_notes`：第二优先级，只在需要补充摘要级细节时读取。
+- `read_findings`：读取单篇或少量论文级证据点，作为跨论文综合的证据索引。
+- `read_papers`：只在需要补充 URL、年份、venue 或摘要元数据时使用。
+- `read_scratchpad`：读取 Step 1/2/2.5 的研究计划和覆盖缺口。
+- `synthesize_findings`：固化主题、共识、争议、空白和证据质量说明。
 - `write_scratchpad_note`：记录可复用的综合笔记。
-- `write_report_section`：写入本步骤报告章节。
+- `write_report_section`：写入 `知识综合与研究空白`。
 
-执行步骤：
-1. 读取已记录的 findings、papers 和 paper_notes。
-2. 优先基于 paper_notes 聚类；如果 paper_notes 不足，再退回摘要和 findings。
-3. 按方法、理论、应用场景、证据类型和局限性聚类。
-4. 识别共识、争议、矛盾和缺失证据。
-5. 评估来源强度和证据质量。
-6. 使用 `synthesize_findings` 固化综合结果。
-7. 写入报告章节：`知识综合与研究空白`。
+执行要求：
+1. 第一动作优先调用 `batch_knowledge_synthesis`。
+2. 如需人工补充，再调用 `read_paper_cards`，限制返回数量，优先读取高相关卡片。
+3. 如果 card 数量不足或字段缺失，再调用 `read_paper_notes`。
+4. 把 findings 当作综合后的证据索引，不要把原始检索列表简单拼接成综述。
+5. 明确区分共识、争议、方法限制、应用场景差异和证据不足。
+6. 每个研究空白都要回指到 paper_cards/findings，或明确说明证据不足。
+7. 本阶段输出跨论文综合结论，但不直接生成最终 LaTeX 正文。
 
 必须产出：
-- 3-6 个综合主题。
+- 3-6 个跨论文综合主题。
 - 共识与争议对照。
 - 带证据依据的研究空白分析。
 - 证据质量说明。
-
-质量门：
-- 每个研究空白都必须回指到 papers/findings，或明确说明证据不足。
-- 本步骤不要生成最终观点，只为下一步准备材料。
-
-人工检查点：
-- 对高风险研究建议启用。如果综合结果出现多条互斥方向，应在 `open_issues` 中标出需要人工选择的方向。
+- `synthesis_digest.json`。
+- 报告章节：`## 知识综合与研究空白`。

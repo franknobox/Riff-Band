@@ -35,18 +35,21 @@ class WriteReportSectionTool(BaseAction):
     @staticmethod
     def _strip_duplicate_section_heading(section_title: str, content: str) -> str:
         text = str(content or "").strip()
-        title = str(section_title or "").strip()
+        title = str(section_title or "").strip().lstrip("#").strip()
         if not title or not text:
             return text
         lines = text.splitlines()
-        if lines and lines[0].strip() == f"## {title}":
+        if lines and lines[0].strip().lstrip("#").strip() == title:
             return "\n".join(lines[1:]).strip()
         return text
 
     async def __call__(self, section_title: str, content: str) -> Dict[str, Any]:
         self.report_path.parent.mkdir(parents=True, exist_ok=True)
-        header = f"## {section_title}"
-        normalized_content = self._strip_duplicate_section_heading(section_title, content)
+        clean_title = str(section_title or "").strip().lstrip("#").strip()
+        if not clean_title:
+            return {"success": False, "message": "section_title must not be empty"}
+        header = f"## {clean_title}"
+        normalized_content = self._strip_duplicate_section_heading(clean_title, content)
         existing = (
             self.report_path.read_text(encoding="utf-8")
             if self.report_path.exists()
@@ -60,4 +63,4 @@ class WriteReportSectionTool(BaseAction):
         else:
             updated = f"{existing.rstrip()}\n\n{header}\n\n{normalized_content}\n"
         self.report_path.write_text(updated.rstrip() + "\n", encoding="utf-8")
-        return {"success": True, "output": f"Updated section '{section_title}'."}
+        return {"success": True, "output": f"Updated section '{clean_title}'."}

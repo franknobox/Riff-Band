@@ -1,41 +1,41 @@
-# 观点辩论
-
-在撰写前从多视角压力测试候选观点。
+# 观点辩论与优先级评估
 
 ## 阶段协议
 
-步骤：`claim_debate`
+阶段：`claim_debate`
 
 目标：
-- 批判性评估候选观点、研究空白、未来方向和研究问题。
-- 决定每个重要观点是保留、修改、降级还是移除。
+- 对 `claims.jsonl` 中的候选综述观点、研究空白、未来方向和可检验问题做证据压力测试。
+- 判断每个重要观点应当保留、修订、降级还是移除。
+- 生成 `debate_log.md`，并稳定写入报告章节 `观点辩论与优先级评估`。
 
 输入：
-- `claims.jsonl`、`findings.jsonl`、`papers.jsonl` 和综合笔记。
+- `claims.jsonl`
+- `findings.jsonl`
+- 前序知识综合和论文阅读摘要
 
 推荐工具：
-- `read_research_claims`、`read_findings`、`read_papers`：读取观点和证据。
-- `read_scratchpad`：读取综合上下文。
-- `novelty_check`：检查可能被过度声称的观点。
-- `record_claim_debate`：记录 keep/revise/downgrade/remove 决策。
-- `write_report_section`：写入本步骤报告章节。
+- `batch_claim_debate`：首选工具。批量读取 claims/findings，生成辩论记录，并写入报告章节。
+- `read_claim_debate_log`：检查已经生成的辩论记录。
+- `read_research_claims`：必要时读取候选观点。
+- `write_report_section`：仅在需要人工补充或修正章节时使用。
 
 执行步骤：
-1. 读取候选观点和支撑证据。
-2. 从证据覆盖、新颖性、相关性、方法可靠性、局限性和实际价值等角度审查每个观点。
-3. 识别无支撑观点、过度泛化、引用缺口和较弱未来方向。
-4. 为每个重要观点记录辩论决策。
-5. 生成用于最终写作的观点优先级列表。
-6. 写入报告章节：`观点辩论与优先级评估`。
+1. 首先调用 `batch_claim_debate`，不要逐条反复调用 `record_claim_debate`。
+2. 检查 `debate_log.md` 是否包含 keep/revise/downgrade/remove 或等价决策。
+3. 确认 `research_report.md` 中存在 `## 观点辩论与优先级评估`。
+4. 如果观点证据不足，在章节中明确标注证据层级和使用边界。
 
 必须产出：
-- 结构化辩论记录。
-- 观点级决策：keep、revise、downgrade 或 remove。
-- 用于最终正文的优先级观点、空白和方向。
+- `debate_log.md`
+- 报告章节：`## 观点辩论与优先级评估`
+- 用于最终文献综述正文的观点优先级列表
 
-质量门：
-- 每个 keep 决策必须有证据依据。
-- 每个 revise/downgrade/remove 决策必须给出具体理由。
+质量要求：
+- 保留的观点必须能追溯到前序 claims/findings 或 paper notes。
+- 修订或降级的观点必须说明证据风险。
+- 不要把摘要级或元数据级证据写成完整实验结论。
 
-人工检查点：
-- 建议启用。人工批准可避免最终报告围绕弱观点或不相关观点展开。
+说明：
+- 当前项目中的“辩论”主要是批量证据压力测试，不是严格的多角色正反方辩论。
+- 如果后续要实现真正多 agent 辩论，可以在本阶段拆分为支持者、质疑者和裁决者三个角色，再由裁决者写入 `debate_log.md`。

@@ -1,49 +1,44 @@
 # 文献检索
 
-收集真实、可验证、可引用的论文候选和证据点，为最终生成 `paper.tex` 和 `references.bib` 服务。不得编造论文元数据。
+收集真实、可验证、可引用的论文候选，并为后续轻量阅读、知识综合和最终 `paper.tex` / `references.bib` 建立干净的论文池。本阶段只负责检索、筛选和去重，不做跨论文知识综合，也不写 `findings.jsonl`。
 
 ## 阶段协议
 
 步骤：`literature_search`
 
 目标：
-- 建立足够大的合格论文池，标准深度目标不少于 30 篇 `papers.jsonl` 记录，深度综述目标不少于 50 篇。
-- 覆盖核心主题、相邻主题、综述论文、方法论文、应用论文和挑战/局限论文。
-- 形成可供后续知识综合使用的证据表和来源缺口说明。
 
-输入：
-- scratchpad 中的研究线索、关键词、纳入/排除标准。
-- 本地来源、用户指定来源和当前主题约束。
+- 根据 Step 1 的研究主题、研究线索和“检索式”构造组合学术 query。
+- 优先使用具体检索式，不要只用单个宽泛关键词。
+- 建立至少 30 篇合格论文的候选池，写入 `candidates.jsonl`、`shortlist.jsonl` 和 `papers.jsonl`。
+- 对候选论文进行相关性筛选和去重，保证后续 Step 2.5 可以直接读取高相关论文生成 `paper_cards.jsonl`。
+- 不在本阶段生成跨论文结论、研究空白或宏观发现。
 
 推荐工具：
-- `arxiv_search`、`semantic_scholar_search`：主力学术检索工具。优先使用英文同义查询和缩写查询，例如 RIS、ISAC、reconfigurable intelligent surface、integrated sensing and communication。
-- `crossref_lookup`、`dblp_lookup`：当 arXiv 或 Semantic Scholar 超时/429/结果不足时补充元数据。
-- `web_search`、`web_fetch`、`read_url`：发现综述、期刊页面、PDF 页面和机构报告。
-- `local_pdf_extract`：读取本地 PDF 材料。
-- `record_paper`：每篇合格论文都要记录题名、作者、年份、venue、URL/DOI、摘要或相关性说明。
-- `record_paper_note`：对高相关论文基于摘要、网页或 PDF 记录轻量结构化阅读笔记。
-- `record_finding`：每条关键结论都要记录 source_url 或明确 evidence。
-- `write_scratchpad_note`：记录检索覆盖、失败工具、替代查询和证据缺口。
-- `write_report_section`：写入 `文献检索与证据表`。
 
-执行步骤：
-1. 先根据 Step 1 的关键词生成中英文查询组，至少覆盖核心组合、缩写组合和宽泛补充组合。
-2. 对每个查询优先调用 `semantic_scholar_search(limit=20~50)` 和 `arxiv_search(max_results=20~50)`。
-3. 如果某个工具超时、429 或连续失败，不要原样重试；改用更宽/更窄查询，或切换 `crossref_lookup`、`dblp_lookup`、`web_search`。
-4. 对每篇合格论文调用 `record_paper`，避免只把论文留在工具返回结果里。
-5. 对高相关论文调用 `record_paper_note`，至少抽取 problem、method、scenario、main_findings、limitations、relevance_to_topic 和 evidence_source；如果只读到摘要，必须把 evidence_source 标为 `abstract`。
-6. 对关键发现调用 `record_finding`，并关联来源 URL。
-7. 如果论文数量仍不足，继续用相邻关键词补充综述论文、方法论文和应用论文，并在 scratchpad 说明缺口。
-8. 写入报告章节 `文献检索与证据表`，列出检索渠道、论文数量、主题覆盖和剩余缺口。
+- `batch_literature_search`：主工具。按 query 批量检索，内部负责多源检索、筛选、去重，并将合格论文写入 `papers.jsonl`。
+- `read_papers`：只用于检查论文池数量、相关性和覆盖情况，不要反复读取完整论文列表。
+- `write_scratchpad_note`：记录检索覆盖、失败工具、替代 query、明显缺口和下一步建议。
+- `write_report_section`：写入 `## 文献检索与证据表`，只总结检索策略、论文池规模、主题覆盖和不足。
+
+执行要求：
+
+1. 第一动作优先调用 `batch_literature_search`。
+2. `queries` 使用 Step 1 的“检索式”和组合学术 query，例如“RIS-assisted ISAC vehicular networks”“reconfigurable intelligent surface integrated sensing communication beamforming”，不要只传入 “RIS” 或 “ISAC” 这种单词级关键词。
+3. `record_findings` 必须保持为 `false`。Step 2 不写 `findings.jsonl`，跨论文 findings 由 Step 3 的知识综合阶段生成。
+4. 达到论文数量目标后停止继续检索，转为总结检索覆盖情况和缺口。
+5. 如果同一工具连续失败，不要原样重试；缩小 query、切换检索源，或记录 open issue。
+6. 输出内容必须避免把原始检索列表当成综述结论。
 
 必须产出：
-- `papers.jsonl` 中的合格论文记录，标准深度目标不少于 30 篇。
-- `paper_notes.jsonl` 中至少若干篇高相关论文的轻量阅读笔记；如果工具限制导致无法补足，明确说明。
-- 多条有来源支撑的 findings。
-- 按研究线索分组的证据表。
-- 工具失败、来源缺口和不确定性说明。
 
-质量门：
-- 不得编造引用、作者、年份、期刊、会议或链接。
-- 论文池必须优先服务最终 `.tex` 文献综述和 `references.bib`。
-- 若无法达到论文数量目标，返回 `partial` 并明确失败工具、已尝试查询和缺失来源类型。
+- `candidates.jsonl`：原始候选论文。
+- `shortlist.jsonl`：筛选后的候选论文。
+- `papers.jsonl`：去重后的合格论文池。
+- 报告章节：`## 文献检索与证据表`。
+
+不得产出：
+
+- 不在 Step 2 写 `findings.jsonl`。
+- 不在 Step 2 生成研究空白、跨论文主题、争议或假设。
+- 不调用 `record_finding` 记录摘要级 finding。

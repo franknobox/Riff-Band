@@ -1,43 +1,30 @@
-# 观点生成
+# 综述观点与研究空白生成
 
-限定为文献综述观点，不执行实验设计。
+将知识综合结果转为文献综述可使用的研究空白、未来方向、局限性和综述观点。本阶段不设计实验，不提出未经证据支撑的实现方案。
 
 ## 阶段协议
 
 步骤：`claim_generation`
 
 目标：
-- 将知识综合结果转化为研究空白、未来方向、综述观点、局限性和可检验研究问题。
-- 检查候选观点是否已被现有证据覆盖。
-
-输入：
-- 综合主题、findings、papers 和 scratchpad 笔记。
+- 基于 `paper_notes.jsonl` 和 `findings.jsonl` 生成 4-8 个候选综述观点。
+- 每个观点必须说明证据依据、不确定性和优先级。
+- 将结构化结果写入 `claims.jsonl`。
 
 推荐工具：
-- `read_findings`、`read_papers`、`read_scratchpad`：生成观点前先读取材料。
-- `novelty_check`：在提升候选观点为强观点前检查覆盖情况。
-- `record_research_claim`：记录强观点、研究空白、未来方向、局限性或研究问题。
+- `batch_claim_generation`：主工具，基于论文笔记和发现批量生成 claims。
+- `read_research_claims`：检查生成结果。
 - `write_scratchpad_note`：记录观点优先级和交接说明。
-- `write_report_section`：写入本步骤报告章节。
+- `write_report_section`：写入 `研究空白、未来方向与可检验问题`。
 
-执行步骤：
-1. 读取综合笔记、findings 和文献记录。
-2. 生成 4-8 个候选综述观点或研究方向。
-3. 对每个候选项说明证据依据、对应空白、不确定性和验证路径。
-4. 对高优先级观点运行 `novelty_check`。
-5. 使用 `record_research_claim` 记录强候选项。
-6. 将观点优先级标为 high/medium/low。
-7. 写入报告章节：`研究空白、未来方向与可检验问题`。
+执行要求：
+1. 第一动作优先调用 `batch_claim_generation`。
+2. 不要调用 `read_sources` 读取 output 目录里的研究产物。
+3. 不要输出 `Invalid` action；只使用当前允许的工具。
+4. 没有证据依据或明确不确定性的观点不得升级为 high priority。
+5. 本阶段输出的是综述观点和研究空白，不是最终正文。
 
 必须产出：
-- 4-8 个候选观点、方向或问题。
-- 每项的证据依据和不确定性。
-- 新颖性或覆盖情况说明。
-- `claims.jsonl` 中的优先级观点记录。
-
-质量门：
-- 不得编造实验假设或实现方案。
-- 没有证据依据或明确不确定性的观点不得提升为强观点。
-
-人工检查点：
-- 强烈建议启用。人工可以在进入辩论和写作前选择哪些观点作为最终综述主线。
+- `claims.jsonl` 中 4-8 条候选综述观点、方向或问题。
+- 每条 claim 的 evidence_basis、source_urls、priority 和 uncertainty。
+- 报告章节：`## 研究空白、未来方向与可检验问题`。

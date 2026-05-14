@@ -76,6 +76,67 @@ def _short_text(value: Any, limit: int = 600) -> str:
     return text
 
 
+_QUERY_STOPWORDS = {
+    "and",
+    "or",
+    "the",
+    "for",
+    "with",
+    "from",
+    "into",
+    "via",
+    "using",
+    "based",
+    "survey",
+    "review",
+    "paper",
+    "study",
+    "studies",
+    "system",
+    "systems",
+    "network",
+    "networks",
+    "communication",
+    "communications",
+}
+
+
+def _query_match_units(query: str) -> list[str]:
+    text = str(query or "").strip()
+    if not text:
+        return []
+    units: list[str] = []
+    for quoted in re.findall(r'"([^"]{2,})"', text):
+        cleaned = re.sub(r"\s+", " ", quoted).strip().lower()
+        if cleaned:
+            units.append(cleaned)
+    unquoted = re.sub(r'"[^"]+"', " ", text)
+    for token in re.findall(r"[A-Za-z][A-Za-z0-9-]{2,}", unquoted):
+        lower = token.lower()
+        if lower in _QUERY_STOPWORDS:
+            continue
+        units.append(lower)
+    return list(dict.fromkeys(units))
+
+
+def _record_matches_query(record: dict[str, Any], query: str) -> bool:
+    units = _query_match_units(query)
+    if not units:
+        return True
+    haystack = " ".join(
+        str(record.get(field, "") or "")
+        for field in ("title", "abstract", "summary", "venue", "publication_types")
+    ).lower()
+    if not haystack:
+        return False
+    phrase_units = [unit for unit in units if " " in unit]
+    if phrase_units and any(unit in haystack for unit in phrase_units):
+        return True
+    token_units = [unit for unit in units if " " not in unit]
+    required = 1 if len(token_units) <= 2 else 2
+    return sum(1 for unit in token_units if unit in haystack) >= required
+
+
 def _compact_literature_records(papers: list[dict[str, Any]], backend: str) -> list[dict[str, Any]]:
     compact: list[dict[str, Any]] = []
     for paper in papers:
@@ -97,6 +158,22 @@ def _compact_literature_records(papers: list[dict[str, Any]], backend: str) -> l
         }
         compact.append({key: value for key, value in item.items() if value not in ("", [], None)})
     return compact
+
+
+def _abstract_from_openalex_index(index: Any) -> str:
+    if not isinstance(index, dict):
+        return ""
+    positions: list[tuple[int, str]] = []
+    for word, raw_positions in index.items():
+        if not isinstance(raw_positions, list):
+            continue
+        for pos in raw_positions:
+            try:
+                positions.append((int(pos), str(word)))
+            except (TypeError, ValueError):
+                continue
+    positions.sort(key=lambda item: item[0])
+    return " ".join(word for _pos, word in positions)
 
 
 def _contains_cjk(text: str) -> bool:
@@ -426,6 +503,98 @@ class SemanticScholarSearchTool(BaseAction):
             "result_mode": "compact",
             "record_count": len(papers),
             "output": json.dumps(_compact_literature_records(papers, "semantic_scholar"), ensure_ascii=False, indent=2),
+        }
+
+
+class OpenAlexSearchTool(BaseAction):
+    name: str = "openalex_search"
+    description: str = "Search academic works via the OpenAlex Works API."
+    parameters: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string"},
+                "limit": {"type": "integer", "default": 20},
+                "from_year": {"type": "integer"},
+                "to_year": {"type": "integer"},
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        }
+    )
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    async def __call__(
+        self,
+        query: str,
+        limit: int = 20,
+        from_year: int | None = None,
+        to_year: int | None = None,
+    ) -> Dict[str, Any]:
+        q = str(query or "").strip()
+        if not q:
+            return {"success": False, "message": "query must not be empty"}
+        limit = max(1, min(int(limit or 20), 50))
+        filters = []
+        if from_year:
+            filters.append(f"from_publication_date:{int(from_year)}-01-01")
+        if to_year:
+            filters.append(f"to_publication_date:{int(to_year)}-12-31")
+        fetch_limit = min(50, max(limit, limit * 3))
+        params: dict[str, Any] = {
+            "search": q,
+            "per-page": fetch_limit,
+            "sort": "cited_by_count:desc",
+        }
+        if filters:
+            params["filter"] = ",".join(filters)
+        url = "https://api.openalex.org/works?" + urllib.parse.urlencode(params)
+        try:
+            data = await asyncio.to_thread(_http_get_json, url, None, 30)
+        except Exception as exc:
+            return {"success": False, "retryable": True, "message": f"OpenAlex search failed: {exc}"}
+
+        records: list[dict[str, Any]] = []
+        for item in data.get("results", []) if isinstance(data, dict) else []:
+            if not isinstance(item, dict):
+                continue
+            authors = []
+            for authorship in item.get("authorships", []) or []:
+                author = authorship.get("author", {}) if isinstance(authorship, dict) else {}
+                name = str(author.get("display_name", "") or "").strip()
+                if name:
+                    authors.append(name)
+            primary = item.get("primary_location", {}) if isinstance(item.get("primary_location"), dict) else {}
+            source = primary.get("source", {}) if isinstance(primary.get("source"), dict) else {}
+            ids = item.get("ids", {}) if isinstance(item.get("ids"), dict) else {}
+            doi = str(item.get("doi") or ids.get("doi") or "").replace("https://doi.org/", "")
+            record = {
+                "paper_id": item.get("id", ""),
+                "title": item.get("display_name", ""),
+                "authors": authors[:8],
+                "year": item.get("publication_year", ""),
+                "venue": source.get("display_name", ""),
+                "source_url": primary.get("landing_page_url") or ids.get("openalex") or item.get("id", ""),
+                "doi": doi,
+                "abstract": _abstract_from_openalex_index(item.get("abstract_inverted_index")),
+                "citation_count": item.get("cited_by_count", 0),
+                "reference_count": item.get("referenced_works_count", 0),
+                "publication_types": [item.get("type", "")] if item.get("type") else [],
+                "external_ids": {"OpenAlex": item.get("id", ""), "DOI": doi},
+            }
+            if not _record_matches_query(record, q):
+                continue
+            records.append(record)
+            if len(records) >= limit:
+                break
+        return {
+            "success": True,
+            "backend": "openalex",
+            "result_mode": "compact",
+            "record_count": len(records),
+            "output": json.dumps(_compact_literature_records(records, "openalex"), ensure_ascii=False, indent=2),
         }
 
 

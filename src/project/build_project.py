@@ -44,6 +44,11 @@ from orchestration_tools.delegate import (
 from project.prompts import GenericMainPromptBuilder, GenericSubPromptBuilder
 from project.tools import (
     ArxivSearchTool,
+    BatchClaimDebateTool,
+    BatchPaperEnrichmentTool,
+    BatchClaimGenerationTool,
+    BatchKnowledgeSynthesisTool,
+    BatchLiteratureSearchTool,
     BibtexExportTool,
     BuildResearchOutlineTool,
     CitationAuditTool,
@@ -52,17 +57,21 @@ from project.tools import (
     ListSourcesTool,
     LocalPdfExtractTool,
     NoveltyCheckTool,
+    OpenAlexSearchTool,
     ReadClaimDebateLogTool,
+    ReadPaperCardsTool,
     ReadPaperNotesTool,
     ReadPapersTool,
     ReadFindingsTool,
     ReadResearchClaimsTool,
     ReadResearchOutlineTool,
     ReadResearchReportTool,
+    ReadSynthesisDigestTool,
     ReadScratchpadTool,
     ReadSourceTool,
     ReadSourcesTool,
     ReadUrlTool,
+    LiteratureScreenTool,
     RecordClaimDebateTool,
     RecordPaperNoteTool,
     RecordFindingTool,
@@ -123,8 +132,14 @@ def _default_worker_tools() -> List[str]:
         "web_search",
         "web_fetch",
         "read_url",
+        "openalex_search",
         "arxiv_search",
         "semantic_scholar_search",
+        "batch_literature_search",
+        "literature_screen",
+        "batch_paper_enrichment",
+        "batch_knowledge_synthesis",
+        "batch_claim_generation",
         "crossref_lookup",
         "dblp_lookup",
         "local_pdf_extract",
@@ -133,12 +148,15 @@ def _default_worker_tools() -> List[str]:
         "read_papers",
         "record_paper_note",
         "read_paper_notes",
+        "read_paper_cards",
+        "read_synthesis_digest",
         "bibtex_export",
         "record_finding",
         "read_findings",
         "synthesize_findings",
         "record_research_claim",
         "read_research_claims",
+        "batch_claim_debate",
         "record_claim_debate",
         "build_research_outline",
         "review_research_report",
@@ -1116,11 +1134,17 @@ def _build_runtime_components(
     findings_path = output_dir / "findings.jsonl"
     scratchpad_path = output_dir / "scratchpad" / "shared.md"
     papers_path = output_dir / "papers.jsonl"
+    candidates_path = output_dir / "candidates.jsonl"
+    shortlist_path = output_dir / "shortlist.jsonl"
     paper_notes_path = output_dir / "paper_notes.jsonl"
+    paper_cards_path = output_dir / "paper_cards.jsonl"
+    synthesis_digest_path = output_dir / "synthesis_digest.json"
+    outline_context_path = output_dir / "outline_context.json"
     claims_path = output_dir / "claims.jsonl"
     debate_log_path = output_dir / "debate_log.md"
     outline_path = output_dir / "outline.md"
     review_path = output_dir / "review_report.md"
+    paper_tex_path = output_dir / "paper.tex"
     references_bib_path = output_dir / "references.bib"
     ddg_available = bool(
         importlib.util.find_spec("ddgs")
@@ -1136,8 +1160,20 @@ def _build_runtime_components(
         WebSearchTool(),
         WebFetchTool(),
         ReadUrlTool(),
+        OpenAlexSearchTool(),
         ArxivSearchTool(),
         SemanticScholarSearchTool(),
+        BatchLiteratureSearchTool(
+            candidates_path=candidates_path,
+            shortlist_path=shortlist_path,
+            papers_path=papers_path,
+            findings_path=findings_path,
+        ),
+        LiteratureScreenTool(
+            candidates_path=candidates_path,
+            shortlist_path=shortlist_path,
+            papers_path=papers_path,
+        ),
         CrossrefLookupTool(),
         DblpLookupTool(),
         LocalPdfExtractTool(root_dir=sources_dir),
@@ -1147,8 +1183,28 @@ def _build_runtime_components(
         ),
         RecordPaperTool(papers_path=papers_path),
         ReadPapersTool(papers_path=papers_path),
+        BatchPaperEnrichmentTool(
+            papers_path=papers_path,
+            paper_notes_path=paper_notes_path,
+            paper_cards_path=paper_cards_path,
+        ),
         RecordPaperNoteTool(paper_notes_path=paper_notes_path),
         ReadPaperNotesTool(paper_notes_path=paper_notes_path),
+        ReadPaperCardsTool(paper_cards_path=paper_cards_path),
+        BatchClaimGenerationTool(
+            paper_notes_path=paper_notes_path,
+            findings_path=findings_path,
+            synthesis_digest_path=synthesis_digest_path,
+            claims_path=claims_path,
+            report_path=report_path,
+        ),
+        BatchKnowledgeSynthesisTool(
+            paper_cards_path=paper_cards_path,
+            paper_notes_path=paper_notes_path,
+            findings_path=findings_path,
+            synthesis_digest_path=synthesis_digest_path,
+            report_path=report_path,
+        ),
         BibtexExportTool(
             papers_path=papers_path,
             default_output_path=references_bib_path,
@@ -1158,13 +1214,21 @@ def _build_runtime_components(
         SynthesizeFindingsTool(scratchpad_path=scratchpad_path),
         RecordResearchClaimTool(claims_path=claims_path),
         ReadResearchClaimsTool(claims_path=claims_path),
+        BatchClaimDebateTool(
+            claims_path=claims_path,
+            findings_path=findings_path,
+            debate_log_path=debate_log_path,
+            report_path=report_path,
+        ),
         RecordClaimDebateTool(debate_log_path=debate_log_path),
         BuildResearchOutlineTool(outline_path=outline_path),
+        ReadSynthesisDigestTool(synthesis_digest_path=synthesis_digest_path),
         ReadClaimDebateLogTool(debate_log_path=debate_log_path),
         ReadResearchOutlineTool(outline_path=outline_path),
         ReadResearchReportTool(report_path=report_path),
         ReviewResearchReportTool(
             report_path=report_path,
+            paper_tex_path=paper_tex_path,
             findings_path=findings_path,
             claims_path=claims_path,
             review_path=review_path,
@@ -1189,7 +1253,12 @@ def _build_runtime_components(
         "findings_path": str(findings_path),
         "scratchpad_path": str(scratchpad_path),
         "papers_path": str(papers_path),
+        "candidates_path": str(candidates_path),
+        "shortlist_path": str(shortlist_path),
         "paper_notes_path": str(paper_notes_path),
+        "paper_cards_path": str(paper_cards_path),
+        "synthesis_digest_path": str(synthesis_digest_path),
+        "outline_context_path": str(outline_context_path),
         "claims_path": str(claims_path),
         "debate_log_path": str(debate_log_path),
         "outline_path": str(outline_path),

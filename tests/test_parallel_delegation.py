@@ -21,7 +21,6 @@ class TestParallelDelegation(unittest.TestCase):
                     "verify_artifacts",
                 ],
                 "parallel_forbidden_tools": ["write_report_section"],
-                "model_routing": {"general_research": "m1"},
             },
         )
         params = agent._apply_delegate_tasks_defaults(

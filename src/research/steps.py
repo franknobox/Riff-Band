@@ -42,7 +42,7 @@ RESEARCH_STEPS: tuple[ResearchStep, ...] = (
         title="Step 2: Literature Search",
         skill="literature-search",
         expected_section="文献检索与证据表",
-        min_findings=8,
+        min_findings=0,
         min_papers=30,
         parallel_hint=True,
     ),
@@ -51,7 +51,7 @@ RESEARCH_STEPS: tuple[ResearchStep, ...] = (
         title="Step 2.5: Paper Enrichment",
         skill="paper-enrichment",
         expected_section="论文阅读笔记与结构化抽取",
-        min_papers=10,
+        min_papers=30,
         parallel_hint=True,
     ),
     ResearchStep(
@@ -59,7 +59,7 @@ RESEARCH_STEPS: tuple[ResearchStep, ...] = (
         title="Step 3: Knowledge Synthesis",
         skill="knowledge-synthesis",
         expected_section="知识综合与研究空白",
-        min_findings=8,
+        min_findings=0,
         parallel_hint=True,
     ),
     ResearchStep(
@@ -67,7 +67,7 @@ RESEARCH_STEPS: tuple[ResearchStep, ...] = (
         title="Step 4: Claim Generation",
         skill="claim-generation",
         expected_section="研究空白、未来方向与可检验问题",
-        min_findings=8,
+        min_findings=0,
         parallel_hint=True,
     ),
     ResearchStep(
