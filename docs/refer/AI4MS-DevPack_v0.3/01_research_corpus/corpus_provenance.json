@@ -1,0 +1,1213 @@
+{
+  "as_of_date": "2026-07-12",
+  "provider": "OpenAlex",
+  "provider_docs": "https://developers.openalex.org/api-reference/works",
+  "selection_design": "10 journals × (5 all-time highly cited + 5 recent high-velocity), article type, through 2025-12-31",
+  "recent_window": [
+    2021,
+    2025
+  ],
+  "hot_score_formula": "(citations_2024_2026 + 1) / sqrt(2026 - publication_year + 1) + 0.15 * total_citations / (2026 - publication_year + 1)",
+  "journal_runs": [
+    {
+      "journal": "Management Science",
+      "issn": "0025-1909",
+      "openalex_source_id": "https://openalex.org/S33323087",
+      "openalex_display_name": "Management Science",
+      "works_count": 14167,
+      "selected_count": 10,
+      "classic_meta": {
+        "count": 13571,
+        "db_response_time_ms": 20,
+        "page": 1,
+        "per_page": 40,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where source is (S33323087) and date <= (2025-12-31) and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S33323087"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 40
+          },
+          "url": "/works?filter=primary_location.source.id:S33323087,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=40"
+        },
+        "cost_usd": 0.0001
+      },
+      "recent_meta": {
+        "count": 2264,
+        "db_response_time_ms": 20,
+        "page": 1,
+        "per_page": 100,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where date >= (2021-01-01)\n  and source is (S33323087)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "from_publication_date",
+                "value": "2021-01-01"
+              },
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S33323087"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 100
+          },
+          "url": "/works?filter=from_publication_date:2021-01-01,primary_location.source.id:S33323087,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=100"
+        },
+        "cost_usd": 0.0001
+      },
+      "classic_candidate_count": 39,
+      "recent_candidate_count": 100
+    },
+    {
+      "journal": "Operations Research",
+      "issn": "0030-364X",
+      "openalex_source_id": "https://openalex.org/S125775545",
+      "openalex_display_name": "Operations Research",
+      "works_count": 8488,
+      "selected_count": 10,
+      "classic_meta": {
+        "count": 7347,
+        "db_response_time_ms": 13,
+        "page": 1,
+        "per_page": 40,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where source is (S125775545)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S125775545"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 40
+          },
+          "url": "/works?filter=primary_location.source.id:S125775545,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=40"
+        },
+        "cost_usd": 0.0001
+      },
+      "recent_meta": {
+        "count": 807,
+        "db_response_time_ms": 14,
+        "page": 1,
+        "per_page": 100,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where date >= (2021-01-01)\n  and source is (S125775545)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "from_publication_date",
+                "value": "2021-01-01"
+              },
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S125775545"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 100
+          },
+          "url": "/works?filter=from_publication_date:2021-01-01,primary_location.source.id:S125775545,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=100"
+        },
+        "cost_usd": 0.0001
+      },
+      "classic_candidate_count": 40,
+      "recent_candidate_count": 100
+    },
+    {
+      "journal": "Manufacturing & Service Operations Management",
+      "issn": "1523-4614",
+      "openalex_source_id": "https://openalex.org/S81410195",
+      "openalex_display_name": "Manufacturing & Service Operations Management",
+      "works_count": 1763,
+      "selected_count": 10,
+      "classic_meta": {
+        "count": 1607,
+        "db_response_time_ms": 15,
+        "page": 1,
+        "per_page": 40,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where source is (S81410195) and date <= (2025-12-31) and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S81410195"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 40
+          },
+          "url": "/works?filter=primary_location.source.id:S81410195,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=40"
+        },
+        "cost_usd": 0.0001
+      },
+      "recent_meta": {
+        "count": 623,
+        "db_response_time_ms": 19,
+        "page": 1,
+        "per_page": 100,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where date >= (2021-01-01)\n  and source is (S81410195)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "from_publication_date",
+                "value": "2021-01-01"
+              },
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S81410195"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 100
+          },
+          "url": "/works?filter=from_publication_date:2021-01-01,primary_location.source.id:S81410195,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=100"
+        },
+        "cost_usd": 0.0001
+      },
+      "classic_candidate_count": 40,
+      "recent_candidate_count": 100
+    },
+    {
+      "journal": "Production and Operations Management",
+      "issn": "1059-1478",
+      "openalex_source_id": "https://openalex.org/S149070780",
+      "openalex_display_name": "Production and Operations Management",
+      "works_count": 3887,
+      "selected_count": 10,
+      "classic_meta": {
+        "count": 3398,
+        "db_response_time_ms": 14,
+        "page": 1,
+        "per_page": 40,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where source is (S149070780)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S149070780"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 40
+          },
+          "url": "/works?filter=primary_location.source.id:S149070780,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=40"
+        },
+        "cost_usd": 0.0001
+      },
+      "recent_meta": {
+        "count": 1188,
+        "db_response_time_ms": 15,
+        "page": 1,
+        "per_page": 100,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where date >= (2021-01-01)\n  and source is (S149070780)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "from_publication_date",
+                "value": "2021-01-01"
+              },
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S149070780"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 100
+          },
+          "url": "/works?filter=from_publication_date:2021-01-01,primary_location.source.id:S149070780,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=100"
+        },
+        "cost_usd": 0.0001
+      },
+      "classic_candidate_count": 40,
+      "recent_candidate_count": 100
+    },
+    {
+      "journal": "Journal of Operations Management",
+      "issn": "0272-6963",
+      "openalex_source_id": "https://openalex.org/S142306484",
+      "openalex_display_name": "Journal of Operations Management",
+      "works_count": 2444,
+      "selected_count": 10,
+      "classic_meta": {
+        "count": 1936,
+        "db_response_time_ms": 12,
+        "page": 1,
+        "per_page": 40,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where source is (S142306484)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S142306484"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 40
+          },
+          "url": "/works?filter=primary_location.source.id:S142306484,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=40"
+        },
+        "cost_usd": 0.0001
+      },
+      "recent_meta": {
+        "count": 237,
+        "db_response_time_ms": 16,
+        "page": 1,
+        "per_page": 100,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where date >= (2021-01-01)\n  and source is (S142306484)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "from_publication_date",
+                "value": "2021-01-01"
+              },
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S142306484"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 100
+          },
+          "url": "/works?filter=from_publication_date:2021-01-01,primary_location.source.id:S142306484,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=100"
+        },
+        "cost_usd": 0.0001
+      },
+      "classic_candidate_count": 40,
+      "recent_candidate_count": 99
+    },
+    {
+      "journal": "Information Systems Research",
+      "issn": "1047-7047",
+      "openalex_source_id": "https://openalex.org/S202812398",
+      "openalex_display_name": "Information Systems Research",
+      "works_count": 1981,
+      "selected_count": 10,
+      "classic_meta": {
+        "count": 1792,
+        "db_response_time_ms": 19,
+        "page": 1,
+        "per_page": 40,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where source is (S202812398)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S202812398"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 40
+          },
+          "url": "/works?filter=primary_location.source.id:S202812398,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=40"
+        },
+        "cost_usd": 0.0001
+      },
+      "recent_meta": {
+        "count": 569,
+        "db_response_time_ms": 22,
+        "page": 1,
+        "per_page": 100,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where date >= (2021-01-01)\n  and source is (S202812398)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "from_publication_date",
+                "value": "2021-01-01"
+              },
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S202812398"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 100
+          },
+          "url": "/works?filter=from_publication_date:2021-01-01,primary_location.source.id:S202812398,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=100"
+        },
+        "cost_usd": 0.0001
+      },
+      "classic_candidate_count": 40,
+      "recent_candidate_count": 99
+    },
+    {
+      "journal": "MIS Quarterly",
+      "issn": "0276-7783",
+      "openalex_source_id": "https://openalex.org/S57293258",
+      "openalex_display_name": "MIS Quarterly",
+      "works_count": 2716,
+      "selected_count": 10,
+      "classic_meta": {
+        "count": 2521,
+        "db_response_time_ms": 15,
+        "page": 1,
+        "per_page": 40,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where source is (S57293258) and date <= (2025-12-31) and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S57293258"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 40
+          },
+          "url": "/works?filter=primary_location.source.id:S57293258,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=40"
+        },
+        "cost_usd": 0.0001
+      },
+      "recent_meta": {
+        "count": 419,
+        "db_response_time_ms": 16,
+        "page": 1,
+        "per_page": 100,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where date >= (2021-01-01)\n  and source is (S57293258)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "from_publication_date",
+                "value": "2021-01-01"
+              },
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S57293258"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 100
+          },
+          "url": "/works?filter=from_publication_date:2021-01-01,primary_location.source.id:S57293258,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=100"
+        },
+        "cost_usd": 0.0001
+      },
+      "classic_candidate_count": 40,
+      "recent_candidate_count": 100
+    },
+    {
+      "journal": "INFORMS Journal on Computing",
+      "issn": "1091-9856",
+      "openalex_source_id": "https://openalex.org/S165318533",
+      "openalex_display_name": "INFORMS journal on computing",
+      "works_count": 2683,
+      "selected_count": 10,
+      "classic_meta": {
+        "count": 2450,
+        "db_response_time_ms": 14,
+        "page": 1,
+        "per_page": 40,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where source is (S165318533)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S165318533"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 40
+          },
+          "url": "/works?filter=primary_location.source.id:S165318533,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=40"
+        },
+        "cost_usd": 0.0001
+      },
+      "recent_meta": {
+        "count": 872,
+        "db_response_time_ms": 18,
+        "page": 1,
+        "per_page": 100,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where date >= (2021-01-01)\n  and source is (S165318533)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "from_publication_date",
+                "value": "2021-01-01"
+              },
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S165318533"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 100
+          },
+          "url": "/works?filter=from_publication_date:2021-01-01,primary_location.source.id:S165318533,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=100"
+        },
+        "cost_usd": 0.0001
+      },
+      "classic_candidate_count": 40,
+      "recent_candidate_count": 100
+    },
+    {
+      "journal": "Transportation Science",
+      "issn": "0041-1655",
+      "openalex_source_id": "https://openalex.org/S130252234",
+      "openalex_display_name": "Transportation Science",
+      "works_count": 2673,
+      "selected_count": 10,
+      "classic_meta": {
+        "count": 2510,
+        "db_response_time_ms": 14,
+        "page": 1,
+        "per_page": 40,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where source is (S130252234)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S130252234"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 40
+          },
+          "url": "/works?filter=primary_location.source.id:S130252234,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=40"
+        },
+        "cost_usd": 0.0001
+      },
+      "recent_meta": {
+        "count": 368,
+        "db_response_time_ms": 15,
+        "page": 1,
+        "per_page": 100,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where date >= (2021-01-01)\n  and source is (S130252234)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "from_publication_date",
+                "value": "2021-01-01"
+              },
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S130252234"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 100
+          },
+          "url": "/works?filter=from_publication_date:2021-01-01,primary_location.source.id:S130252234,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=100"
+        },
+        "cost_usd": 0.0001
+      },
+      "classic_candidate_count": 40,
+      "recent_candidate_count": 100
+    },
+    {
+      "journal": "Decision Sciences",
+      "issn": "0011-7315",
+      "openalex_source_id": "https://openalex.org/S177792750",
+      "openalex_display_name": "Decision Sciences",
+      "works_count": 3173,
+      "selected_count": 10,
+      "classic_meta": {
+        "count": 2760,
+        "db_response_time_ms": 13,
+        "page": 1,
+        "per_page": 40,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where source is (S177792750)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S177792750"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 40
+          },
+          "url": "/works?filter=primary_location.source.id:S177792750,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=40"
+        },
+        "cost_usd": 0.0001
+      },
+      "recent_meta": {
+        "count": 161,
+        "db_response_time_ms": 17,
+        "page": 1,
+        "per_page": 100,
+        "groups_count": null,
+        "x_query": {
+          "oql": "works where date >= (2021-01-01)\n  and source is (S177792750)\n  and date <= (2025-12-31)\n  and type is (article)",
+          "oqo": {
+            "get_rows": "works",
+            "filter_rows": [
+              {
+                "column_id": "from_publication_date",
+                "value": "2021-01-01"
+              },
+              {
+                "column_id": "primary_location.source.id",
+                "value": "S177792750"
+              },
+              {
+                "column_id": "to_publication_date",
+                "value": "2025-12-31"
+              },
+              {
+                "column_id": "type",
+                "value": "article"
+              }
+            ],
+            "sort_by": [
+              {
+                "column_id": "cited_by_count",
+                "direction": "desc"
+              }
+            ],
+            "select": [
+              "id",
+              "doi",
+              "display_name",
+              "publication_year",
+              "publication_date",
+              "cited_by_count",
+              "counts_by_year",
+              "abstract_inverted_index",
+              "authorships",
+              "primary_location",
+              "topics",
+              "keywords",
+              "type",
+              "language",
+              "is_retracted"
+            ],
+            "per_page": 100
+          },
+          "url": "/works?filter=from_publication_date:2021-01-01,primary_location.source.id:S177792750,to_publication_date:2025-12-31,type:article&sort=cited_by_count:desc&select=id,doi,display_name,publication_year,publication_date,cited_by_count,counts_by_year,abstract_inverted_index,authorships,primary_location,topics,keywords,type,language,is_retracted&per_page=100"
+        },
+        "cost_usd": 0.0001
+      },
+      "classic_candidate_count": 38,
+      "recent_candidate_count": 100
+    }
+  ]
+}

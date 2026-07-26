@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="AI4MS 管理科学 AI 科研协作平台完整产品与使用说明" />
+  <meta name="ai4ms-guide-version" content="0.1.0" />
+  <meta name="ai4ms-guide-commit" content="local-build" />
+  <meta name="ai4ms-guide-channel" content="ai4ms" />
+  <title>AI4MS 完整使用说明</title>
+  <style>
+    :root {
+      --ink: #1d1d1f;
+      --muted: #6e6e73;
+      --line: rgba(29, 29, 31, .10);
+      --line-strong: rgba(29, 29, 31, .17);
+      --page: #f5f5f7;
+      --paper: #fff;
+      --blue: #58738b;
+      --blue-dark: #466177;
+      --blue-soft: #edf2f5;
+      --shadow: 0 1px 3px rgba(0,0,0,.04), 0 16px 42px rgba(0,0,0,.06);
+      --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.72 var(--sans); -webkit-font-smoothing: antialiased; }
+    a { color: var(--blue-dark); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    .topbar { position: sticky; z-index: 20; top: 0; min-height: 58px; padding: 0 28px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); background: rgba(245,245,247,.86); backdrop-filter: saturate(160%) blur(18px); }
+    .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 780; letter-spacing: -.03em; }
+    .brand i { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--line-strong); background: #fff; color: var(--blue-dark); font-size: 10px; font-style: normal; }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .top-actions a, .print-button { min-height: 34px; padding: 0 12px; display: inline-flex; align-items: center; border: 1px solid var(--line-strong); background: rgba(255,255,255,.8); color: var(--ink); font: 11px var(--sans); cursor: pointer; }
+    .top-actions .primary { border-color: var(--blue-dark); background: var(--blue-dark); color: #fff; }
+    .layout { width: min(1480px, calc(100% - 40px)); margin: 0 auto; display: grid; grid-template-columns: 252px minmax(0, 1fr); gap: 30px; }
+    .toc { position: sticky; top: 82px; height: calc(100vh - 104px); padding: 20px 0; overflow: auto; }
+    .toc > span { display: block; margin: 0 0 11px 12px; color: var(--muted); font-size: 9px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+    .toc a { min-height: 36px; padding: 8px 12px; display: flex; align-items: center; gap: 9px; border-left: 2px solid transparent; color: var(--muted); font-size: 11px; }
+    .toc a b { width: 24px; color: #a0a0a5; font-size: 9px; }
+    .toc a:hover, .toc a.is-active { border-left-color: var(--blue); background: rgba(88,115,139,.07); color: var(--ink); text-decoration: none; }
+    main { min-width: 0; padding: 34px 0 90px; }
+    .hero { min-height: 410px; padding: clamp(28px,5vw,64px); display: grid; grid-template-columns: minmax(0,1.25fr) minmax(250px,.75fr); align-items: end; gap: 50px; background: linear-gradient(145deg,#171719,#32373c); color: #fff; box-shadow: 0 26px 70px rgba(0,0,0,.16); }
+    .eyebrow { margin: 0 0 8px; color: #aab9c6; font-size: 10px; font-weight: 760; letter-spacing: .12em; text-transform: uppercase; }
+    .hero h1 { max-width: 820px; margin: 0; font-size: clamp(38px,6vw,72px); line-height: .98; letter-spacing: -.055em; }
+    .hero .lede { max-width: 750px; margin: 25px 0 0; color: #d2d7db; font-size: 16px; line-height: 1.75; }
+    .hero aside { padding-left: 24px; border-left: 1px solid rgba(255,255,255,.17); }
+    .hero aside div { padding: 15px 0; display: grid; grid-template-columns: 70px 1fr; gap: 10px; border-top: 1px solid rgba(255,255,255,.12); }
+    .hero aside div:first-child { border-top: 0; }
+    .hero aside span { color: #9daab4; font-size: 10px; }
+    .hero aside strong { font-size: 12px; font-weight: 650; }
+    .status-strip { display: grid; grid-template-columns: repeat(4,1fr); border: 1px solid var(--line); border-top: 0; background: #fff; box-shadow: var(--shadow); }
+    .status-strip div { padding: 18px; display: grid; gap: 3px; border-left: 1px solid var(--line); }
+    .status-strip div:first-child { border-left: 0; }
+    .status-strip strong { font-size: 22px; letter-spacing: -.04em; }
+    .status-strip span { color: var(--muted); font-size: 9px; }
+    section.guide-section { padding: 70px 0 0; scroll-margin-top: 70px; }
+    .section-heading { margin-bottom: 22px; display: grid; grid-template-columns: 100px minmax(0,1fr); gap: 18px; align-items: start; }
+    .section-heading > span { padding-top: 9px; color: var(--blue-dark); font-size: 10px; font-weight: 760; letter-spacing: .12em; }
+    .section-heading h2 { margin: 0; font-size: clamp(26px,4vw,44px); line-height: 1.08; letter-spacing: -.04em; }
+    .section-heading p { max-width: 820px; margin: 12px 0 0; color: var(--muted); font-size: 14px; }
+    .callout { padding: 20px 22px; border-left: 3px solid var(--blue); background: var(--blue-soft); }
+    .callout strong { display: block; margin-bottom: 5px; }
+    .callout p { margin: 0; color: #4e5962; }
+    .grid-2, .grid-3, .grid-4 { display: grid; gap: 10px; }
+    .grid-2 { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .grid-3 { grid-template-columns: repeat(3,minmax(0,1fr)); }
+    .grid-4 { grid-template-columns: repeat(4,minmax(0,1fr)); }
+    .card { padding: 21px; border: 1px solid var(--line); background: var(--paper); box-shadow: 0 1px 2px rgba(0,0,0,.025); }
+    .card .num { color: var(--blue-dark); font-size: 9px; font-weight: 780; letter-spacing: .08em; }
+    .card h3 { margin: 18px 0 8px; font-size: 17px; line-height: 1.35; }
+    .card p { margin: 0; color: var(--muted); font-size: 11px; }
+    .card ul { margin: 12px 0 0; padding-left: 18px; color: #4f4f54; font-size: 11px; }
+    .card li + li { margin-top: 5px; }
+    .steps { counter-reset: steps; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+    .steps article { min-height: 220px; padding: 22px; position: relative; border: 1px solid var(--line); background: #fff; }
+    .steps article::before { counter-increment: steps; content: "0" counter(steps); color: var(--blue-dark); font-size: 10px; font-weight: 780; }
+    .steps h3 { margin: 38px 0 8px; font-size: 18px; }
+    .steps p { margin: 0; color: var(--muted); font-size: 11px; }
+    .steps b { display: block; margin-top: 17px; color: var(--ink); font-size: 10px; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); background: #fff; box-shadow: var(--shadow); }
+    table { width: 100%; border-collapse: collapse; min-width: 920px; }
+    th, td { padding: 13px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { position: sticky; top: 0; background: #f5f5f7; color: var(--muted); font-size: 9px; font-weight: 760; letter-spacing: .04em; }
+    td { font-size: 10px; line-height: 1.55; }
+    td strong { display: block; margin-bottom: 3px; font-size: 11px; }
+    td small { color: var(--muted); font-size: 9px; }
+    .stage-id { color: var(--blue-dark); font-weight: 800; }
+    .gate { padding: 3px 6px; display: inline-block; border: 1px solid var(--line-strong); background: #f7f7f8; font-size: 8px; font-weight: 750; }
+    .flow { padding: 20px; display: grid; grid-template-columns: repeat(5,1fr); border: 1px solid var(--line); background: #fff; }
+    .flow div { min-height: 116px; padding: 14px; position: relative; border-left: 1px solid var(--line); }
+    .flow div:first-child { border-left: 0; }
+    .flow div:not(:last-child)::after { content: "→"; position: absolute; z-index: 2; right: -8px; top: 42px; width: 16px; height: 22px; display: grid; place-items: center; background: #fff; color: var(--blue-dark); }
+    .flow span { color: var(--blue-dark); font-size: 9px; font-weight: 780; }
+    .flow strong { display: block; margin: 20px 0 5px; font-size: 12px; }
+    .flow small { color: var(--muted); font-size: 9px; line-height: 1.45; }
+    .gate-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+    .gate-card { padding: 20px; border: 1px solid var(--line); background: #fff; }
+    .gate-card header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .gate-card header span { color: var(--blue-dark); font-size: 19px; font-weight: 800; }
+    .gate-card header b { padding: 3px 6px; background: #ececee; font-size: 8px; }
+    .gate-card h3 { margin: 22px 0 7px; font-size: 16px; }
+    .gate-card p { margin: 0; color: var(--muted); font-size: 10px; }
+    .gate-card dl { margin: 14px 0 0; }
+    .gate-card dl div { padding: 8px 0; display: grid; grid-template-columns: 60px 1fr; gap: 8px; border-top: 1px solid var(--line); }
+    .gate-card dt { color: var(--muted); font-size: 9px; }
+    .gate-card dd { margin: 0; font-size: 9px; }
+    .architecture { display: grid; grid-template-columns: 1fr; border: 1px solid var(--line); background: #fff; }
+    .architecture article { padding: 17px 20px; display: grid; grid-template-columns: 130px 220px 1fr; gap: 18px; border-top: 1px solid var(--line); }
+    .architecture article:first-child { border-top: 0; }
+    .architecture span { color: var(--blue-dark); font-size: 9px; font-weight: 760; }
+    .architecture strong { font-size: 11px; }
+    .architecture p { margin: 0; color: var(--muted); font-size: 10px; }
+    .legend { margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 7px; list-style: none; }
+    .legend li { padding: 5px 8px; border: 1px solid var(--line); background: #fff; color: var(--muted); font-size: 9px; }
+    details { border: 1px solid var(--line); background: #fff; }
+    details + details { border-top: 0; }
+    summary { padding: 16px 18px; display: flex; justify-content: space-between; gap: 14px; list-style: none; font-size: 12px; font-weight: 700; cursor: pointer; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; color: var(--blue-dark); font-size: 17px; font-weight: 450; }
+    details[open] summary::after { content: "−"; }
+    details > div { padding: 0 18px 18px; color: var(--muted); font-size: 11px; }
+    code { padding: 2px 5px; background: #eceef0; color: #394550; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .do-example { margin: 0; padding: 20px; overflow: auto; background: #171719; color: #dbe2e7; font: 10px/1.75 ui-monospace,SFMono-Regular,Menlo,monospace; white-space: pre; }
+    .footer { margin-top: 76px; padding: 30px 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
+    .footer strong { color: var(--ink); }
+    @media (max-width: 1040px) {
+      .layout { grid-template-columns: 1fr; }
+      .toc { display: none; }
+      .hero { grid-template-columns: 1fr; }
+      .hero aside { padding: 18px 0 0; border-left: 0; border-top: 1px solid rgba(255,255,255,.17); }
+      .grid-4 { grid-template-columns: repeat(2,1fr); }
+      .flow { grid-template-columns: 1fr 1fr; }
+      .flow div { border-top: 1px solid var(--line); }
+      .flow div::after { display: none !important; }
+    }
+    @media (max-width: 720px) {
+      .topbar { padding: 0 14px; }
+      .print-button { display: none; }
+      .layout { width: min(100% - 20px, 1480px); }
+      main { padding-top: 10px; }
+      .hero { min-height: 0; padding: 28px 22px; }
+      .status-strip, .grid-2, .grid-3, .grid-4, .steps, .gate-grid, .flow { grid-template-columns: 1fr; }
+      .status-strip div { border-left: 0; border-top: 1px solid var(--line); }
+      .status-strip div:first-child { border-top: 0; }
+      .section-heading { grid-template-columns: 1fr; gap: 2px; }
+      section.guide-section { padding-top: 52px; }
+      .architecture article { grid-template-columns: 1fr; gap: 5px; }
+      .footer { flex-direction: column; }
+    }
+    @media print {
+      body { background: #fff; font-size: 10pt; }
+      .topbar, .toc { display: none; }
+      .layout { width: 100%; display: block; }
+      main { padding: 0; }
+      .hero { min-height: 0; box-shadow: none; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      section.guide-section { padding-top: 30px; break-inside: auto; }
+      .card, .gate-card, details, tr { break-inside: avoid; }
+      details > div { display: block; }
+      a { color: inherit; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" data-deploy-link="workbench" href="/"><i>AI</i><span>AI4MS 使用说明</span></a>
+    <div class="top-actions">
+      <button class="print-button" type="button" onclick="window.print()">打印 / 导出 PDF</button>
+      <a data-deploy-link="health" href="/healthz">服务状态</a>
+      <a data-deploy-link="api-docs" href="/docs">API 文档</a>
+      <a class="primary" data-deploy-link="workbench" href="/">返回科研工作台</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="toc" aria-label="本页目录">
+      <span>完整产品手册</span>
+      <a href="#overview"><b>01</b>产品概览</a>
+      <a href="#quickstart"><b>02</b>快速开始</a>
+      <a href="#journey"><b>03</b>S0–S9 科研旅程</a>
+      <a href="#agents"><b>04</b>智能体协作</a>
+      <a href="#approvals"><b>05</b>人工审批</a>
+      <a href="#evidence"><b>06</b>已有研究与证据</a>
+      <a href="#methods"><b>07</b>方法、公式与诊断</a>
+      <a href="#stata"><b>08</b>Stata 分析</a>
+      <a href="#assets"><b>09</b>资产与版本</a>
+      <a href="#projects"><b>10</b>项目和偏好</a>
+      <a href="#architecture"><b>11</b>实现与数据</a>
+      <a href="#faq"><b>12</b>常见问题</a>
+    </aside>
+
+    <main>
+      <section class="hero" id="overview">
+        <div>
+          <p class="eyebrow">AI for Management Science · Product manual</p>
+          <h1>把科研过程变成可协作、可审批、可复现的工作流。</h1>
+          <p class="lede">AI4MS 面向管理科学研究者，把选题、已有研究报告、理论、设计、数据、Stata 分析、稳健性、写作与发布放在一个连续工作台中。每个阶段由专属智能体协助，但关键学术判断始终由人决定。</p>
+        </div>
+        <aside>
+          <div><span>文档版本</span><strong data-ai4ms-build-field="version">v0.1.0 · ai4ms</strong></div>
+          <div><span>构建提交</span><strong><span data-ai4ms-build-field="commit">local-build</span></strong></div>
+          <div><span>适用对象</span><strong>研究者、导师、方法审核者、数据负责人</strong></div>
+          <div><span>工作模式</span><strong>10 阶段智能体 + 6 个人工审批门</strong></div>
+          <div><span>核心原则</span><strong>AI 起草，人类决定，全程留痕</strong></div>
+        </aside>
+      </section>
+      <div class="status-strip" aria-label="平台能力摘要">
+        <div><strong>10</strong><span>S0–S9 科研阶段</span></div>
+        <div><strong>6</strong><span>G0–G5 人工审批门</span></div>
+        <div><strong>36</strong><span>可检索诊断规则</span></div>
+        <div><strong>28 / 47 / 40</strong><span>后端方法 / 公式 / 数据源注册项</span></div>
+      </div>
+
+      <section class="guide-section" aria-labelledby="what-title">
+        <div class="section-heading"><span>01 · OVERVIEW</span><div><h2 id="what-title">这不是“自动写论文”，而是科研协作与治理平台</h2><p>平台的价值不是替研究者做决定，而是让每个决定有证据、有版本、有检查、有负责人。即使不懂技术，也可以按页面上的阶段、待决定项和审批门推进。</p></div></div>
+        <div class="grid-4">
+          <article class="card"><span class="num">A · 找问题</span><h3>先查已有研究</h3><p>围绕候选课题形成可复核检索、相关研究报告、研究流派和真正仍未解决的问题。</p></article>
+          <article class="card"><span class="num">B · 定设计</span><h3>把假设说清楚</h3><p>比较主设计和备选设计，明确 estimand、识别假设、失败规则与未采用理由。</p></article>
+          <article class="card"><span class="num">C · 做分析</span><h3>计划先于运行</h3><p>先冻结分析计划，再生成和审阅 do-file；正式 Stata 运行必须得到人工批准。</p></article>
+          <article class="card"><span class="num">D · 可交付</span><h3>正文仍由人掌控</h3><p>智能体内容先预览，人工确认后才能同步到正文；同步后仍可修改并保留来源。</p></article>
+        </div>
+        <div class="callout" style="margin-top:10px"><strong>不可委托原则</strong><p>课题选择、理论取舍、方法风险、数据许可、正式运行、失败结果解释、核心主张和最终发布，不能由智能体自行批准。</p></div>
+      </section>
+
+      <section class="guide-section" id="quickstart">
+        <div class="section-heading"><span>02 · START</span><div><h2>第一次使用：六步建立一个可推进课题</h2><p>从顶部“当前项目”进入项目中心，或选择“创建新课题”。项目保存后会出现在项目列表，并从 S0 开始工作。</p></div></div>
+        <div class="steps">
+          <article><h3>创建项目</h3><p>填写课题名称、学科、初始问题、研究对象、样本窗口、关键词与候选数据源。</p><b>人工确认：问题边界与负责人</b></article>
+          <article><h3>与 Topic Agent 对话</h3><p>让智能体缩小范围、检索近似研究并形成三个可证伪的问题版本。</p><b>人工确认：选题是否继续</b></article>
+          <article><h3>编辑阶段草稿</h3><p>点击“打开当前草稿”，直接修改摘要、正文、证据说明、决定、风险和交接字段。</p><b>人工确认：内容是否准确</b></article>
+          <article><h3>运行一致性检查</h3><p>检查缺失字段、证据覆盖、口径冲突、审批前置与下游影响；逐项打开并整改。</p><b>机器检查：提出问题，不替代判断</b></article>
+          <article><h3>记录待决定项</h3><p>在“待决定项”中接受、修改或拒绝建议，并写下理由和剩余风险。</p><b>人工确认：关键选择与风险</b></article>
+          <article><h3>提交审批门</h3><p>冻结当前 revision，交给指定角色会签。语义修改会生成新版本并可能使下游审批失效。</p><b>人工确认：签署并解锁下一阶段</b></article>
+        </div>
+      </section>
+
+      <section class="guide-section" id="journey">
+        <div class="section-heading"><span>03 · JOURNEY</span><div><h2>S0–S9 完整科研旅程</h2><p>每个阶段都有专属智能体、结构化交付、检查规则和人工决定。阶段可以回退修改，但不能绕过审批依赖。</p></div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>阶段</th><th>专属智能体</th><th>主要工作</th><th>阶段交付</th><th>必须由人决定</th><th>审批关系</th></tr></thead>
+            <tbody>
+              <tr><td class="stage-id">S0 问题识别</td><td><strong>Topic Agent</strong><small>选题与研究空白</small></td><td>反向检索近似课题，判断新颖性、价值与可行性。</td><td>课题简报、已有研究报告、候选问题。</td><td>确认边界、改写问题或暂停。</td><td><span class="gate">G0</span></td></tr>
+              <tr><td class="stage-id">S1 文献综述</td><td><strong>Literature Agent</strong><small>证据检索与综合</small></td><td>记录检索式、来源、纳排标准，构建论文卡和证据流派。</td><td>检索协议、证据表、流派综述。</td><td>决定纳入/排除与冲突处理。</td><td>G1 前置</td></tr>
+              <tr><td class="stage-id">S2 理论构建</td><td><strong>Theory Agent</strong><small>机制与竞争解释</small></td><td>连接构念、机制、边界条件和可区分的竞争解释。</td><td>理论图、研究问题、假设草案。</td><td>选择理论与贡献边界。</td><td>G1 前置</td></tr>
+              <tr><td class="stage-id">S3 研究设计</td><td><strong>Design Agent</strong><small>主备设计比较</small></td><td>确定 estimand、样本、主备方法、识别假设和停止条件。</td><td>研究协议、设计备忘录、假设表。</td><td>选择主设计并接受剩余风险。</td><td><span class="gate">G1</span></td></tr>
+              <tr><td class="stage-id">S4 数据与变量</td><td><strong>Data Agent</strong><small>数据合同与口径</small></td><td>登记来源、许可、变量、缺失、隐私和运行位置。</td><td>数据合同、变量表、伦理清单。</td><td>确认许可、代理变量与数据边界。</td><td><span class="gate">G2</span></td></tr>
+              <tr><td class="stage-id">S5 识别与检验</td><td><strong>Analysis Plan Agent</strong><small>分析计划</small></td><td>将每个研究问题映射到模型、公式、诊断、代码和失败动作。</td><td>分析计划、模型卡、代码计划。</td><td>冻结主次分析与多重检验规则。</td><td><span class="gate">G3</span></td></tr>
+              <tr><td class="stage-id">S6 结果分析</td><td><strong>Stata Analyst</strong><small>代码与受控运行</small></td><td>生成 do-file、运行预检、提交正式作业并收集日志和产物。</td><td>do-file、日志、表图、数据签名。</td><td>审代码、批准运行、选择重跑分支。</td><td>G3 后运行</td></tr>
+              <tr><td class="stage-id">S7 稳健性检验</td><td><strong>Robustness Agent</strong><small>失败可见</small></td><td>执行预先声明的稳健性、安慰剂、敏感性与外推检查。</td><td>稳健性矩阵、失败项、复现报告。</td><td>追加检验或接受失败影响。</td><td>G4 前置</td></tr>
+              <tr><td class="stage-id">S8 机制与异质性</td><td><strong>Evidence Agent</strong><small>主张—证据图</small></td><td>把正文主张连接到结果、机制证据、反证和适用边界。</td><td>Claim-Evidence 图、解释备忘录。</td><td>改写、降级或撤回主张。</td><td><span class="gate">G4</span></td></tr>
+              <tr><td class="stage-id">S9 结论与政策含义</td><td><strong>Writing Agent</strong><small>写作与交付</small></td><td>协作生成正文、答复信、披露、HTML 与复现发布包。</td><td>论文草稿、答复信、发布包。</td><td>重写、披露并批准最终发布。</td><td><span class="gate">G5</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="guide-section" id="agents">
+        <div class="section-heading"><span>04 · AGENTS</span><div><h2>智能体如何与研究者共同工作</h2><p>点击任一阶段的智能体即可打开统一对话工作区。左侧切换 10 个智能体，中间对话，右侧查看该阶段允许的工具、输入要求和禁止项。</p></div></div>
+        <div class="flow" aria-label="智能体内容同步流程">
+          <div><span>01</span><strong>提出任务</strong><small>说明问题、目标、可用资产和希望的交付格式。</small></div>
+          <div><span>02</span><strong>工具调用</strong><small>智能体只调用本阶段白名单工具，并记录来源与参数。</small></div>
+          <div><span>03</span><strong>生成候选</strong><small>回答是建议或草稿，不自动成为项目事实。</small></div>
+          <div><span>04</span><strong>预览与确认</strong><small>选择同步位置、追加或替换，并勾选人工确认。</small></div>
+          <div><span>05</span><strong>同步后编辑</strong><small>写入阶段资产，保留来源、时间和同步记录，仍可人工修改。</small></div>
+        </div>
+        <div class="grid-3" style="margin-top:10px">
+          <article class="card"><span class="num">允许</span><h3>检索、提取、比较、起草</h3><p>包括文献检索式建议、证据抽取、方法候选比较、Stata 代码草稿和写作重构。</p></article>
+          <article class="card"><span class="num">需要确认</span><h3>同步、运行、风险接受</h3><p>正文同步前必须预览；正式运行和接受诊断失败必须由有权限的人操作。</p></article>
+          <article class="card"><span class="num">禁止</span><h3>伪造、越权、静默覆盖</h3><p>不得编造引用、绕过许可、替人审批、隐藏失败结果或覆盖已批准版本。</p></article>
+        </div>
+      </section>
+
+      <section class="guide-section" id="approvals">
+        <div class="section-heading"><span>05 · APPROVAL</span><div><h2>六个审批门把关键科研判断留给人</h2><p>审批对象不是页面状态，而是带内容哈希、上游依赖和 revision 的确定资产。提交后等待指定人工角色会签。</p></div></div>
+        <div class="gate-grid">
+          <article class="gate-card"><header><span>G0</span><b>选题</b></header><h3>选题与已有研究</h3><p>避免在已有充分结论的问题上重复投入。</p><dl><div><dt>对象</dt><dd>TopicBrief + 相关研究报告</dd></div><div><dt>批准人</dt><dd>研究者 + 导师</dd></div></dl></article>
+          <article class="gate-card"><header><span>G1</span><b>设计</b></header><h3>理论与研究设计</h3><p>确认贡献、estimand、主备设计和可接受风险。</p><dl><div><dt>对象</dt><dd>ResearchProtocol</dd></div><div><dt>批准人</dt><dd>导师 + 方法审核者</dd></div></dl></article>
+          <article class="gate-card"><header><span>G2</span><b>数据</b></header><h3>数据、伦理与许可</h3><p>没有明确许可与运行边界，不得进入正式分析。</p><dl><div><dt>对象</dt><dd>DataContract</dd></div><div><dt>批准人</dt><dd>数据负责人</dd></div></dl></article>
+          <article class="gate-card"><header><span>G3</span><b>运行</b></header><h3>分析计划与代码</h3><p>确保计划、公式、诊断与 do-file 逐项对应。</p><dl><div><dt>对象</dt><dd>AnalysisPlan + do-file</dd></div><div><dt>批准人</dt><dd>方法审核者</dd></div></dl></article>
+          <article class="gate-card"><header><span>G4</span><b>主张</b></header><h3>结果与核心主张</h3><p>核对失败项、反证和结论强度，禁止过度外推。</p><dl><div><dt>对象</dt><dd>Runs + Claims</dd></div><div><dt>批准人</dt><dd>PI + 方法审核者</dd></div></dl></article>
+          <article class="gate-card"><header><span>G5</span><b>发布</b></header><h3>正文与复现发布包</h3><p>确认数字、引用、披露、许可和复现文件一致。</p><dl><div><dt>对象</dt><dd>Manuscript + ReleaseBundle</dd></div><div><dt>批准人</dt><dd>PI + 发布负责人</dd></div></dl></article>
+        </div>
+      </section>
+
+      <section class="guide-section" id="evidence">
+        <div class="section-heading"><span>06 · EVIDENCE</span><div><h2>提出课题前，先形成已有相关研究报告</h2><p>证据库不是简单收藏夹。每次检索保留问题、检索式、来源范围、时间、纳排理由和冲突；论文卡连接到具体主张与研究设计。</p></div></div>
+        <div class="grid-3">
+          <article class="card"><span class="num">SEARCH</span><h3>创建可复核检索</h3><ul><li>输入主题、变量、机制或方法</li><li>选择顶刊、工作论文和数据来源</li><li>保留检索时间与完整条件</li></ul></article>
+          <article class="card"><span class="num">SCREEN</span><h3>论文卡与纳排</h3><ul><li>记录题名、作者、年份与稳定链接</li><li>抽取问题、理论、数据、方法和发现</li><li>人工确认纳入、排除及理由</li></ul></article>
+          <article class="card"><span class="num">SYNTHESIS</span><h3>研究流派与空白</h3><ul><li>区分一致结论、冲突与不可比 estimand</li><li>反向检索“所谓空白”是否已被处理</li><li>输出非技术人员可读的相关研究报告</li></ul></article>
+        </div>
+        <div class="callout" style="margin-top:10px"><strong>引用安全规则</strong><p>任何进入正文的文献必须能回到稳定来源；智能体不能根据记忆补齐作者、年份或结论。未核验来源只能标记为“待补证”，不能作为确定依据。</p></div>
+      </section>
+
+      <section class="guide-section" id="methods">
+        <div class="section-heading"><span>07 · METHODS</span><div><h2>方法、公式与 36 条诊断规则在同一工作台</h2><p>选择方法时先看研究目标、数据结构与识别假设，再看适配分数。公式卡说明符号、变量映射、条件、诊断和实现；诊断规则决定什么时候必须停止或降级结论。</p></div></div>
+        <div class="grid-3">
+          <article class="card"><span class="num">METHOD</span><h3>方法库</h3><p>前端重点展示高频方法的深度卡；后端 28 个方法注册项是权威目录。可比较 1–3 个候选并记录未采用理由。</p></article>
+          <article class="card"><span class="num">FORMULA</span><h3>公式库</h3><p>后端 47 个公式模板版本化保存。公式需绑定符号定义、变量口径、假设、诊断、代码和输出，而不是孤立展示。</p></article>
+          <article class="card"><span class="num">DIAGNOSTIC</span><h3>完整 36 条规则</h3><p>支持按家族筛选、关键词检索和逐条展开。每条包含触发时点、所需证据、失败动作、等级与实现提示。</p></article>
+        </div>
+        <div class="table-wrap" style="margin-top:10px">
+          <table>
+            <thead><tr><th>诊断家族</th><th>代表检查</th><th>失败时如何处理</th><th>常见实现</th></tr></thead>
+            <tbody>
+              <tr><td><strong>数据质量</strong></td><td>唯一键、缺失、异常、数据签名、泄漏</td><td>阻塞正式运行，回到 S4 修订数据合同。</td><td>Stata <code>isid</code>、<code>misstable</code>、<code>datasignature</code></td></tr>
+              <tr><td><strong>面板与统计</strong></td><td>聚类层级、共线性、序列相关、横截面依赖</td><td>调整推断策略并重新审批分析计划。</td><td><code>xtserial</code>、VIF、cluster sensitivity</td></tr>
+              <tr><td><strong>DID / Event study</strong></td><td>处理前趋势、分期处理偏误、安慰剂</td><td>不得继续作强因果表述，切换估计器或降级。</td><td><code>estat ptrends</code>、cohort-aware estimator</td></tr>
+              <tr><td><strong>IV / RDD</strong></td><td>弱工具、排除限制、操纵、带宽敏感性</td><td>主识别失败时切换备选设计并披露。</td><td>first stage F、<code>rdrobust</code>、density test</td></tr>
+              <tr><td><strong>匹配 / 权重</strong></td><td>重叠、平衡、极端权重、隐藏偏误</td><td>限制共同支持或停止推广到无重叠人群。</td><td>SMD、ESS、weight trimming、Rosenbaum bounds</td></tr>
+              <tr><td><strong>SEM / 中介</strong></td><td>测量模型、拟合、间接效应、共同方法偏差</td><td>不支持测量结构时不得解释路径系数。</td><td>CFA、bootstrap indirect effect、fit indices</td></tr>
+              <tr><td><strong>优化与运营</strong></td><td>不可行约束、MIP gap、鲁棒半径、情景稳定</td><td>禁止把当前最好解报告为已证明最优。</td><td>IIS、best bound、VSS/EVPI、样本外压力测试</td></tr>
+              <tr><td><strong>因果机器学习</strong></td><td>交叉拟合、校准、重叠、策略样本外价值</td><td>未通过 holdout 验证时不得输出确定性分群政策。</td><td>cross-fitting、honest split、policy value</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <ul class="legend" style="margin-top:10px"><li>阻塞：停止运行或停止结论</li><li>警告：必须说明处理与剩余风险</li><li>记录：保留证据与参数，便于复现</li><li>规则可加入 S5–S7 检查清单</li></ul>
+      </section>
+
+      <section class="guide-section" id="stata">
+        <div class="section-heading"><span>08 · STATA</span><div><h2>Stata 从代码草稿到正式运行的受控流程</h2><p>Runs 工作区包括分析计划、Do-file、运行前检查、正式运行和结果审阅。批准前可以编辑代码，但正式运行需要 G3 通过、数据签名一致且检查无阻塞。</p></div></div>
+        <div class="flow">
+          <div><span>01</span><strong>计划映射</strong><small>研究问题 → 模型 → 公式 → 诊断 → 输出。</small></div>
+          <div><span>02</span><strong>生成 do-file</strong><small>固定 Stata 版本、路径、随机种子与输出名称。</small></div>
+          <div><span>03</span><strong>运行前检查</strong><small>语法、变量、许可、数据签名和 G3 状态。</small></div>
+          <div><span>04</span><strong>人工批准运行</strong><small>记录批准人、代码哈希、环境与参数。</small></div>
+          <div><span>05</span><strong>结果审阅</strong><small>日志、表图、警告、失败项和复现信息一起交付。</small></div>
+        </div>
+        <pre class="do-example" aria-label="Stata do-file 示例">version 18.0
+set more off
+use "input/firm_panel.dta", clear
+datasignature
+isid firm_id year
+xtset firm_id year
+
+* G3-approved main analysis
+xtreg innovation_quality ai_adoption controls i.year, ///
+  fe vce(cluster firm_id)
+
+estimates store baseline_fe
+etable, estimates(baseline_fe) showstars
+collect export "output/main_results.xlsx", replace</pre>
+        <div class="callout" style="margin-top:10px"><strong>安全边界</strong><p>Stata Runner 应在隔离环境执行，只挂载批准的数据与输出目录；禁用未批准的网络访问和任意系统命令。每次作业保留 do-file、日志、数据签名、镜像或 Stata 版本、返回码与产物哈希。</p></div>
+      </section>
+
+      <section class="guide-section" id="assets">
+        <div class="section-heading"><span>09 · ASSETS</span><div><h2>草稿可改，批准版本可追溯</h2><p>“资产摘要”的六个章节均可展开：研究边界、理论机制、主备设计、变量与数据、证据冲突、人工决定与失败条件。工作草稿可编辑；冻结 revision 只能查看。</p></div></div>
+        <div class="grid-3">
+          <article class="card"><span class="num">DRAFT</span><h3>工作草稿</h3><p>研究者和有权限协作者可直接编辑。智能体同步内容会标记来源，并进入同步历史。</p></article>
+          <article class="card"><span class="num">REVISION</span><h3>确定版本</h3><p>提交审批时生成不可变 revision、内容哈希、上游依赖和差异摘要。</p></article>
+          <article class="card"><span class="num">PROVENANCE</span><h3>版本血缘</h3><p>可以看见该资产来自哪些阶段、影响哪些下游；语义修改会触发一致性检查与审批失效评估。</p></article>
+        </div>
+        <div class="table-wrap" style="margin-top:10px">
+          <table>
+            <thead><tr><th>操作</th><th>工作草稿</th><th>冻结 revision</th><th>审计记录</th></tr></thead>
+            <tbody>
+              <tr><td><strong>查看</strong></td><td>允许</td><td>允许</td><td>保留访问与版本上下文</td></tr>
+              <tr><td><strong>人工编辑</strong></td><td>允许</td><td>禁止；需创建新草稿</td><td>记录作者、时间和字段差异</td></tr>
+              <tr><td><strong>智能体同步</strong></td><td>预览并人工确认后允许</td><td>禁止覆盖</td><td>记录对话、目标字段和追加/替换方式</td></tr>
+              <tr><td><strong>提交审批</strong></td><td>检查通过后允许</td><td>已是审批对象</td><td>记录哈希、依赖、批准人和决定</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="guide-section" id="projects">
+        <div class="section-heading"><span>10 · PROJECTS</span><div><h2>项目管理与三套界面偏好</h2><p>顶部项目切换器可创建、切换和进入项目中心。用户菜单中的“界面偏好”提供三种低饱和风格，本地即时恢复，并同步到后端用户 profile。</p></div></div>
+        <div class="grid-3">
+          <article class="card"><span class="num">GRAPHITE</span><h3>石墨极简</h3><p>黑白灰、克制阴影和最少视觉干扰，适合长时间阅读与正式汇报。</p></article>
+          <article class="card"><span class="num">BLUEPRINT</span><h3>冷蓝研究</h3><p>低饱和蓝灰和清晰状态层次，适合证据、方法和运行监控。</p></article>
+          <article class="card"><span class="num">PAPER</span><h3>论文纸张</h3><p>暖白纸色和学术标题字体，适合写作、评审与打印阅读。</p></article>
+        </div>
+        <div class="callout" style="margin-top:10px"><strong>偏好不会改变研究数据</strong><p>选择先写入浏览器本地存储以便即时恢复，再同步到用户 profile，且仅影响颜色和排版；项目资产与审批状态不受影响。</p></div>
+      </section>
+
+      <section class="guide-section" id="architecture">
+        <div class="section-heading"><span>11 · SYSTEM</span><div><h2>实现结构与数据边界</h2><p>以下内容供产品、研发和实施人员对齐；非技术用户只需理解：项目、版本、审批和运行记录都由后端保存，页面只是工作入口。</p></div></div>
+        <div class="architecture">
+          <article><span>交互层</span><strong>Next.js / React / TypeScript</strong><p>研究旅程、深层资产页、证据与方法工作台、Stata Runs、审批中心、智能体对话和本使用说明。</p></article>
+          <article><span>业务 API</span><strong>FastAPI</strong><p>项目、阶段资产、revision、人工决定、审批状态机、检索、知识注册表、运行作业与交付包接口。</p></article>
+          <article><span>工作流与智能体</span><strong>S0–S9 orchestrator</strong><p>按阶段装配提示、工具白名单、上下文资产、结构化输出、停止规则与人工确认点。</p></article>
+          <article><span>知识与证据</span><strong>Method / Formula / Data registries</strong><p>版本化管理方法、公式、诊断、数据源、论文卡与 Claim-Evidence 关系，支持来源追溯。</p></article>
+          <article><span>运行层</span><strong>Stata Runner / job queue</strong><p>隔离执行已批准 do-file，捕获日志、状态、环境、数据签名和产物哈希；支持取消、超时和重试策略。</p></article>
+          <article><span>持久化与审计</span><strong>SQLite 开发 / PostgreSQL 生产 + object storage</strong><p>结构数据、不可变 revision、审批签名、事件日志和大文件分离保存；后续接入组织权限与备份。</p></article>
+        </div>
+        <div class="grid-2" style="margin-top:10px">
+          <article class="card"><span class="num">常用数据来源</span><h3>注册后再使用</h3><p>国家统计局、CSMAR、CNRDS、Wind、企查查/天眼查类商业数据、专利与商标库、问卷/实验、企业披露和合规网络公开数据。每个来源必须记录许可、访问日期、口径与限制。</p></article>
+          <article class="card"><span class="num">生产要求</span><h3>安全、可靠、可审计</h3><p>组织级 RBAC、受限数据隔离、加密与密钥管理、幂等 API、任务重试、可观测性、备份恢复、审计导出和模型/提示版本管理。</p></article>
+        </div>
+      </section>
+
+      <section class="guide-section" id="faq">
+        <div class="section-heading"><span>12 · FAQ</span><div><h2>常见问题与处理方式</h2><p>如果界面状态与预期不一致，先查看当前项目、阶段、revision 和审批前置；不要通过重复点击绕过阻塞。</p></div></div>
+        <details open><summary>为什么诊断规则显示 36，但筛选后数量变少？</summary><div>规则库共有 36 条。顶部“当前显示 X / 36”反映关键词和家族筛选结果。点击“清除筛选”即可恢复全部规则；每条都可以展开查看触发条件、证据、失败动作与实现提示。</div></details>
+        <details><summary>为什么某些资产不能编辑？</summary><div>审批中的确定 revision 和已批准快照是只读的。返回工作草稿或创建新修订后才能修改；修改可能使受影响审批失效，这是为了保证审批对象不会被静默替换。</div></details>
+        <details><summary>为什么正式 Stata 运行按钮被锁定？</summary><div>通常是 G3 尚未批准、运行前检查存在阻塞、数据签名变化或项目尚未推进到 S6。打开运行前检查与 G3 审批资产，逐项处理后再提交人工批准。</div></details>
+        <details><summary>智能体的回答如何进入交付正文？</summary><div>在对话中选择“同步到阶段资产”，指定目标字段与追加/替换方式，预览内容并勾选人工确认。同步后内容仍可在“打开当前草稿”中修改，且保留对话来源和同步时间。</div></details>
+        <details><summary>如何修改界面颜色和风格？</summary><div>点击右上角用户头像，选择“界面偏好”，在石墨极简、冷蓝研究和论文纸张中切换。选择即时生效并保存在当前浏览器。</div></details>
+        <details><summary>后端暂时连接不上，会不会丢失页面操作？</summary><div>界面会显示“前端演示数据模式”。当前实现允许部分前端操作继续演示，但生产使用前必须确认后端同步成功；关键资产、审批和正式运行不能依赖仅浏览器状态。</div></details>
+        <details><summary>发现引用或结果不一致怎么办？</summary><div>不要直接删除冲突。打开对应证据卡或运行产物，修正来源和口径，重新运行一致性检查，并在人工决定中记录处理理由。已进入核心主张的内容需在 G4 重新审核。</div></details>
+        <details><summary>“查看”“展开”按钮应该发生什么？</summary><div>所有查看类按钮都应打开相应详情、深层工作区或状态面板，不能只显示提示。资产摘要的六个“展开”入口会打开可阅读、草稿可编辑的章节详情。</div></details>
+      </section>
+
+      <footer class="footer">
+        <div><strong>AI4MS · AI for Management Science</strong><br />研究者拥有最终决定权；智能体输出必须可核对、可修改、可拒绝。<br /><a data-deploy-link="guide" href="/ai4ms-user-guide.html">使用说明固定链接</a></div>
+        <div><span data-ai4ms-build-field="footer">文档 v0.1.0 · ai4ms · local-build</span></div>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    const links = Array.from(document.querySelectorAll('.toc a'));
+    const sections = links.map((link) => document.querySelector(link.getAttribute('href'))).filter(Boolean);
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (!visible) return;
+      links.forEach((link) => link.classList.toggle('is-active', link.getAttribute('href') === '#' + visible.target.id));
+    }, { rootMargin: '-20% 0px -68% 0px', threshold: [0, .2, .6] });
+    sections.forEach((section) => observer.observe(section));
+  </script>
+</body>
+</html>

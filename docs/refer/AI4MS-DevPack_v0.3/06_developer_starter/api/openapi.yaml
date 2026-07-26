@@ -1,0 +1,893 @@
+openapi: 3.1.0
+info:
+  title: AI4MS API
+  version: 0.3.0
+  description: Minimal contract for topic scouting, stage agents, editable revisions, human approvals, Stata/Python runs, and evidence workflows.
+servers:
+  - url: /v1
+security:
+  - bearerAuth: []
+paths:
+  /projects:
+    post:
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ProjectCreate'}
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Project'}
+  /projects/{projectId}/protocols:
+    post:
+      operationId: createProtocolVersion
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '201':
+          description: Immutable protocol version created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProtocolVersion'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /protocols/{protocolId}/gates/{gateId}/decisions:
+    post:
+      operationId: decideGate
+      parameters:
+        - $ref: '#/components/parameters/ProtocolId'
+        - name: gateId
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/GateDecisionCreate'}
+      responses:
+        '201':
+          description: Decision recorded
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GateDecision'}
+        '403': {description: Actor lacks required project role}
+  /projects/{projectId}/assets/{assetKey}/revisions:
+    post:
+      operationId: createAssetRevision
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: assetKey
+          in: path
+          required: true
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AssetRevisionCreate'}
+      responses:
+        '201':
+          description: Immutable human, agent, or imported revision created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AssetRevision'}
+        '409': {description: Parent revision or body hash is stale}
+  /assets/{assetId}/revisions/{revisionId}/diff:
+    get:
+      operationId: getAssetRevisionDiff
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: revisionId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: againstRevisionId
+          in: query
+          schema: {type: [string, 'null'], format: uuid}
+      responses:
+        '200':
+          description: Field, text, or code diff plus approval impact
+          content:
+            application/json:
+              schema: {type: object, additionalProperties: true}
+  /projects/{projectId}/approval-requests:
+    post:
+      operationId: createApprovalRequest
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ApprovalRequestCreate'}
+      responses:
+        '201':
+          description: Human approval request created for an exact revision and hash
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ApprovalRequest'}
+        '409': {description: Target revision is stale or required checks are missing}
+  /approval-requests/{approvalRequestId}/decisions:
+    post:
+      operationId: decideApprovalRequest
+      parameters:
+        - name: approvalRequestId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ApprovalDecisionCreate'}
+      responses:
+        '201':
+          description: Human decision recorded
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ApprovalDecision'}
+        '403': {description: Agent actor or human actor lacks the required role}
+        '409': {description: Revision/hash is stale or signoff policy is unsatisfied}
+  /projects/{projectId}/approval-inbox:
+    get:
+      operationId: listApprovalInbox
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - name: status
+          in: query
+          schema: {type: string}
+      responses:
+        '200':
+          description: Approval packets, diffs, checks, comments, and invalidation state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/ApprovalRequest'}}
+  /projects/{projectId}/stage-sessions/current:
+    get:
+      operationId: getCurrentStageSession
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Current S0-S9 principal-agent collaboration state
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/StageSession'}
+  /stage-sessions/{stageSessionId}/suggestions/{suggestionId}/decisions:
+    post:
+      operationId: decideAgentSuggestion
+      parameters:
+        - name: stageSessionId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: suggestionId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SuggestionDecisionCreate'}
+      responses:
+        '201': {description: "Human accepted, modified, rejected, or deferred the patch"}
+  /projects/{projectId}/topic-briefs:
+    post:
+      operationId: createTopicBrief
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TopicBriefCreate'}
+      responses:
+        '201':
+          description: Immutable TopicBrief version created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TopicBrief'}
+        '422': {$ref: '#/components/responses/ValidationError'}
+  /projects/{projectId}/topic-scout-runs:
+    post:
+      operationId: createTopicScoutRun
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TopicScoutRunCreate'}
+      responses:
+        '202':
+          description: Topic scout queued
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TaskAccepted'}
+        '409': {description: TopicBrief has not been approved}
+  /topic-scout-runs/{topicScoutRunId}:
+    get:
+      operationId: getTopicScoutRun
+      parameters:
+        - name: topicScoutRunId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Topic scout state, stage, counts, and artifacts
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TopicScoutRun'}
+  /projects/{projectId}/related-research-reports/latest:
+    get:
+      operationId: getLatestRelatedResearchReport
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: Latest versioned related-research report
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/RelatedResearchReport'}
+        '404': {description: No report exists for the project}
+  /related-research-reports/{reportId}/decisions:
+    post:
+      operationId: decideRelatedResearchReport
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ReportDecisionCreate'}
+      responses:
+        '201':
+          description: G0 decision recorded
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ReportDecision'}
+        '403': {description: Actor lacks researcher or supervisor role}
+        '409': {description: Report version is stale or has unaudited gaps}
+  /projects/{projectId}/watchlists:
+    post:
+      operationId: createWatchlist
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/WatchlistCreate'}
+      responses:
+        '201': {description: Watchlist created}
+  /projects/{projectId}/search-runs:
+    post:
+      operationId: createSearchRun
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SearchRunCreate'}
+      responses:
+        '202':
+          description: Search queued
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TaskAccepted'}
+  /search-runs/{searchRunId}:
+    get:
+      operationId: getSearchRun
+      parameters:
+        - name: searchRunId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Search state and summary
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SearchRun'}
+  /search-runs/{searchRunId}/results:
+    get:
+      operationId: listSearchResults
+      parameters:
+        - name: searchRunId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: cursor
+          in: query
+          schema: {type: string}
+        - name: limit
+          in: query
+          schema: {type: integer, minimum: 1, maximum: 200, default: 50}
+      responses:
+        '200':
+          description: Deduplicated results with provenance
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/PaperResult'}
+                  next_cursor: {type: [string, 'null']}
+  /papers/{paperId}/extractions:
+    post:
+      operationId: createPaperExtraction
+      parameters:
+        - name: paperId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [schema_version]
+              properties:
+                schema_version: {type: string, const: '2.0.0'}
+                source_preference:
+                  type: array
+                  items: {enum: [full_text, abstract, metadata]}
+      responses:
+        '202':
+          description: Extraction queued
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TaskAccepted'}
+  /projects/{projectId}/runs:
+    post:
+      operationId: createRun
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RunCreate'}
+      responses:
+        '202':
+          description: Run queued
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TaskAccepted'}
+        '409': {description: Required human gate has not passed}
+  /projects/{projectId}/stata-runs/preflight:
+    post:
+      operationId: preflightStataRun
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/StataRunCreate'}
+      responses:
+        '200':
+          description: Policy, variables, license seats, G2/G3, runner, and package checks
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/StataPreflight'}
+  /projects/{projectId}/stata-runs:
+    post:
+      operationId: createStataRun
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/StataRunCreate'}
+      responses:
+        '202':
+          description: Approved Stata batch run queued
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TaskAccepted'}
+        '409': {description: G3/hash/runner/license/preflight is invalid}
+  /stata-runs/{stataRunId}:
+    get:
+      operationId: getStataRun
+      parameters:
+        - name: stataRunId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Stata run, logs, environment, data signatures, and artifact manifest
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/StataRun'}
+  /runs/{runId}/cancel:
+    post:
+      operationId: cancelRun
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '202': {description: Cancellation requested}
+  /runs/{runId}/events:
+    get:
+      operationId: streamRunEvents
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Server-sent event stream
+          content:
+            text/event-stream:
+              schema: {type: string}
+  /projects/{projectId}/claims:
+    post:
+      operationId: createClaim
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ClaimCreate'}
+      responses:
+        '201':
+          description: Claim created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Claim'}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    ProtocolId:
+      name: protocolId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+  responses:
+    ValidationError:
+      description: Schema or policy validation failed
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+  schemas:
+    AssetRevisionCreate:
+      type: object
+      required: [parent_revision_id, author_type, body, change_reason, semantic_scope]
+      properties:
+        parent_revision_id: {type: [string, 'null'], format: uuid}
+        author_type: {enum: [human, agent, import]}
+        body: {type: object, additionalProperties: true}
+        change_reason: {type: string, minLength: 1}
+        semantic_scope: {enum: [topic, design, data, analysis, result, claim, writing, format_only]}
+        source_patch_id: {type: [string, 'null'], format: uuid}
+      additionalProperties: false
+    AssetRevision:
+      allOf:
+        - {$ref: '#/components/schemas/AssetRevisionCreate'}
+        - type: object
+          required: [id, asset_id, revision_number, body_sha256, created_at]
+          properties:
+            id: {type: string, format: uuid}
+            asset_id: {type: string, format: uuid}
+            revision_number: {type: integer, minimum: 1}
+            body_sha256: {type: string, pattern: '^[a-fA-F0-9]{64}$'}
+            created_at: {type: string, format: date-time}
+    ApprovalRequestCreate:
+      type: object
+      required: [stage_key, gate_id, target_revision_id, target_sha256, policy, required_roles, checklist]
+      properties:
+        stage_key: {enum: [S0_topic, S1_literature, S2_theory, S3_design, S4_data, S5_analysis_plan, S6_execution, S7_robustness, S8_evidence, S9_writing]}
+        gate_id: {enum: [G0, G1, G2, G3, G4, G5]}
+        target_revision_id: {type: string, format: uuid}
+        target_sha256: {type: string, pattern: '^[a-fA-F0-9]{64}$'}
+        policy: {enum: [single_reviewer, four_eyes, multi_signoff]}
+        required_roles: {type: array, items: {type: string}, uniqueItems: true}
+        checklist: {type: array, items: {type: object}}
+      additionalProperties: false
+    ApprovalRequest:
+      allOf:
+        - {$ref: '#/components/schemas/ApprovalRequestCreate'}
+        - type: object
+          required: [id, project_id, status, requested_by, requested_at]
+          properties:
+            id: {type: string, format: uuid}
+            project_id: {type: string, format: uuid}
+            status: {enum: [draft, in_review, changes_requested, approved, rejected, withdrawn, invalidated, superseded]}
+            requested_by: {type: string, format: uuid}
+            requested_at: {type: string, format: date-time}
+            invalidation: {type: [object, 'null']}
+    ApprovalDecisionCreate:
+      type: object
+      required: [decision, checklist_result, comment, conflict_disclosure]
+      properties:
+        decision: {enum: [approved, changes_requested, rejected, withdrawn]}
+        checklist_result: {type: array, items: {type: object}}
+        comment: {type: string}
+        conflict_disclosure: {type: string}
+      additionalProperties: false
+    ApprovalDecision:
+      allOf:
+        - {$ref: '#/components/schemas/ApprovalDecisionCreate'}
+        - type: object
+          required: [id, approval_request_id, decided_by, role_snapshot, decided_at]
+          properties:
+            id: {type: string, format: uuid}
+            approval_request_id: {type: string, format: uuid}
+            decided_by: {type: string, format: uuid}
+            role_snapshot: {type: string}
+            decided_at: {type: string, format: date-time}
+    StageSession:
+      type: object
+      required: [id, project_id, stage_key, principal_agent, status, decisions_needed, handoff_readiness]
+      properties:
+        id: {type: string, format: uuid}
+        project_id: {type: string, format: uuid}
+        stage_key: {enum: [S0_topic, S1_literature, S2_theory, S3_design, S4_data, S5_analysis_plan, S6_execution, S7_robustness, S8_evidence, S9_writing]}
+        principal_agent: {type: string}
+        status: {enum: [drafting, awaiting_user, in_review, changes_requested, approved, blocked, completed]}
+        current_revision_ids: {type: array, items: {type: string, format: uuid}}
+        decisions_needed: {type: array, items: {type: object}}
+        handoff_readiness: {type: object}
+    SuggestionDecisionCreate:
+      type: object
+      required: [decision]
+      properties:
+        decision: {enum: [accepted, modified, rejected, deferred]}
+        modified_body: {type: [object, 'null']}
+        reason: {type: string}
+      additionalProperties: false
+    StataRunCreate:
+      type: object
+      required: [protocol_id, analysis_plan_revision_id, do_file_artifact_id, do_file_sha256, runner_profile_id, g3_approval_request_id, input_artifact_ids]
+      properties:
+        protocol_id: {type: string, format: uuid}
+        analysis_plan_revision_id: {type: string, format: uuid}
+        do_file_artifact_id: {type: string, format: uuid}
+        do_file_sha256: {type: string, pattern: '^[a-fA-F0-9]{64}$'}
+        runner_profile_id: {type: string, format: uuid}
+        g3_approval_request_id: {type: string, format: uuid}
+        input_artifact_ids: {type: array, minItems: 1, items: {type: string, format: uuid}}
+        data_contract_ids: {type: array, items: {type: string, format: uuid}}
+        parameters: {type: object}
+        seed: {type: [integer, 'null'], minimum: 0}
+        resource_limits: {type: object}
+      additionalProperties: false
+    StataPreflight:
+      type: object
+      required: [policy_passed, variables_passed, license_passed, gate_passed, runner_passed, issues]
+      properties:
+        policy_passed: {type: boolean}
+        variables_passed: {type: boolean}
+        license_passed: {type: boolean}
+        gate_passed: {type: boolean}
+        runner_passed: {type: boolean}
+        issues: {type: array, items: {type: object}}
+    StataRun:
+      allOf:
+        - {$ref: '#/components/schemas/StataRunCreate'}
+        - type: object
+          required: [id, run_id, status, engine_snapshot, preflight_report, created_at]
+          properties:
+            id: {type: string, format: uuid}
+            run_id: {type: string, format: uuid}
+            status: {$ref: '#/components/schemas/TaskStatus'}
+            engine_snapshot: {type: object}
+            package_manifest: {type: array, items: {type: object}}
+            input_data_signatures: {type: object}
+            preflight_report: {$ref: '#/components/schemas/StataPreflight'}
+            exit_code: {type: [integer, 'null']}
+            log_artifact_ids: {type: array, items: {type: string, format: uuid}}
+            output_artifact_ids: {type: array, items: {type: string, format: uuid}}
+            created_at: {type: string, format: date-time}
+    TopicBriefCreate:
+      type: object
+      required: [idea, objective, units, concepts, approved]
+      properties:
+        idea: {type: string, minLength: 5}
+        objective: {enum: [explore, explain, causal, predict, optimize, synthesize, theory_build]}
+        units: {type: array, items: {type: string}}
+        geography: {type: array, items: {type: string}}
+        time_window: {type: [string, 'null']}
+        concepts:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [label, terms]
+            properties:
+              label: {type: string}
+              terms: {type: array, minItems: 1, items: {type: string}}
+              exclude_terms: {type: array, items: {type: string}}
+            additionalProperties: false
+        seed_paper_ids: {type: array, items: {type: string}}
+        approved: {type: boolean}
+      additionalProperties: false
+    TopicBrief:
+      allOf:
+        - {$ref: '#/components/schemas/TopicBriefCreate'}
+        - type: object
+          required: [id, project_id, version, body_sha256, created_at]
+          properties:
+            id: {type: string, format: uuid}
+            project_id: {type: string, format: uuid}
+            version: {type: integer, minimum: 1}
+            body_sha256: {type: string, pattern: '^[a-fA-F0-9]{64}$'}
+            created_at: {type: string, format: date-time}
+    TopicScoutRunCreate:
+      type: object
+      required: [topic_brief_id, backends, stages]
+      properties:
+        topic_brief_id: {type: string, format: uuid}
+        backends:
+          type: array
+          minItems: 1
+          items: {enum: [openalex, crossref, semantic_scholar, arxiv]}
+        stages:
+          type: array
+          minItems: 1
+          items: {enum: [horizon, systematic_expand, gap_counter_search]}
+        year_from: {type: [integer, 'null'], minimum: 1800}
+        year_to: {type: [integer, 'null'], minimum: 1800}
+        max_candidates: {type: integer, minimum: 20, maximum: 1000, default: 100}
+      additionalProperties: false
+    TopicScoutRun:
+      type: object
+      required: [id, project_id, topic_brief_id, status, stage, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        project_id: {type: string, format: uuid}
+        topic_brief_id: {type: string, format: uuid}
+        status: {$ref: '#/components/schemas/TaskStatus'}
+        stage: {enum: [horizon, systematic_expand, gap_counter_search, synthesis, report]}
+        counts: {type: object}
+        artifact_ids: {type: array, items: {type: string, format: uuid}}
+        report_id: {type: [string, 'null'], format: uuid}
+        created_at: {type: string, format: date-time}
+    RelatedResearchReport:
+      type: object
+      required: [id, project_id, version, status, topic_brief_id, search_protocol_ids, synthesis_ids, gap_candidate_ids, topic_candidates, limitations, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        project_id: {type: string, format: uuid}
+        version: {type: integer, minimum: 1}
+        status: {enum: [draft, needs_revision, approved, rejected]}
+        topic_brief_id: {type: string, format: uuid}
+        search_protocol_ids: {type: array, items: {type: string, format: uuid}}
+        synthesis_ids: {type: array, items: {type: string}}
+        gap_candidate_ids: {type: array, items: {type: string}}
+        topic_candidates:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items: {$ref: '#/components/schemas/TopicCandidate'}
+        limitations: {type: array, minItems: 1, items: {type: string}}
+        export_artifact_ids: {type: array, items: {type: string, format: uuid}}
+        created_at: {type: string, format: date-time}
+    TopicCandidate:
+      type: object
+      required: [candidate_id, research_question, recommendation]
+      properties:
+        candidate_id: {type: string}
+        research_question: {type: string, minLength: 10}
+        contribution: {type: string}
+        nearest_prior_paper_ids: {type: array, items: {type: string}}
+        scores:
+          type: object
+          properties:
+            novelty: {type: integer, minimum: 1, maximum: 5}
+            importance: {type: integer, minimum: 1, maximum: 5}
+            feasibility: {type: integer, minimum: 1, maximum: 5}
+            falsifiability: {type: integer, minimum: 1, maximum: 5}
+            rationale: {type: string}
+        recommendation: {enum: [continue, narrow, reframe, merge, pause]}
+      additionalProperties: false
+    ReportDecisionCreate:
+      type: object
+      required: [decision, reason]
+      properties:
+        decision: {enum: [approved, needs_revision, rejected]}
+        selected_candidate_id: {type: [string, 'null']}
+        reason: {type: string, minLength: 3}
+      additionalProperties: false
+    ReportDecision:
+      allOf:
+        - {$ref: '#/components/schemas/ReportDecisionCreate'}
+        - type: object
+          required: [id, report_id, decided_by, decided_at]
+          properties:
+            id: {type: string, format: uuid}
+            report_id: {type: string, format: uuid}
+            decided_by: {type: string, format: uuid}
+            decided_at: {type: string, format: date-time}
+    WatchlistCreate:
+      type: object
+      required: [search_protocol_id, cadence]
+      properties:
+        search_protocol_id: {type: string, format: uuid}
+        cadence: {enum: [daily, weekly, monthly]}
+        include_keywords: {type: array, items: {type: string}}
+        include_journal_ids: {type: array, items: {type: string}}
+        include_author_ids: {type: array, items: {type: string}}
+      additionalProperties: false
+    ProjectCreate:
+      type: object
+      required: [organization_id, slug, title]
+      properties:
+        organization_id: {type: string, format: uuid}
+        slug: {type: string, pattern: '^[a-z0-9][a-z0-9-]{2,63}$'}
+        title: {type: string, minLength: 3}
+      additionalProperties: false
+    Project:
+      allOf:
+        - {$ref: '#/components/schemas/ProjectCreate'}
+        - type: object
+          required: [id, status, created_at]
+          properties:
+            id: {type: string, format: uuid}
+            status: {enum: [draft, active, paused, frozen, archived]}
+            created_at: {type: string, format: date-time}
+    ProtocolVersion:
+      type: object
+      required: [id, project_id, version, schema_version, body_sha256, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        project_id: {type: string, format: uuid}
+        version: {type: integer, minimum: 1}
+        schema_version: {type: string}
+        body_sha256: {type: string}
+        created_at: {type: string, format: date-time}
+    GateDecisionCreate:
+      type: object
+      required: [decision, reason]
+      properties:
+        decision: {enum: [passed, failed, waived]}
+        reason: {type: string}
+        evidence_artifact_ids:
+          type: array
+          items: {type: string, format: uuid}
+      additionalProperties: false
+    GateDecision:
+      allOf:
+        - {$ref: '#/components/schemas/GateDecisionCreate'}
+        - type: object
+          required: [id, protocol_id, gate_id, decided_by, decided_at]
+          properties:
+            id: {type: string, format: uuid}
+            protocol_id: {type: string, format: uuid}
+            gate_id: {type: string}
+            decided_by: {type: string, format: uuid}
+            decided_at: {type: string, format: date-time}
+    SearchRunCreate:
+      type: object
+      required: [protocol_id, queries, backends]
+      properties:
+        protocol_id: {type: string, format: uuid}
+        queries:
+          type: array
+          minItems: 1
+          items: {type: string, minLength: 2}
+        backends:
+          type: array
+          minItems: 1
+          items: {enum: [openalex, crossref, semantic_scholar, arxiv]}
+        filters: {type: object}
+        strategy: {type: string, const: union_then_dedupe}
+      additionalProperties: false
+    SearchRun:
+      type: object
+      required: [id, project_id, status, backend_summaries, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        project_id: {type: string, format: uuid}
+        status: {$ref: '#/components/schemas/TaskStatus'}
+        backend_summaries: {type: array, items: {type: object}}
+        total_raw: {type: integer, minimum: 0}
+        total_deduplicated: {type: integer, minimum: 0}
+        created_at: {type: string, format: date-time}
+    PaperResult:
+      type: object
+      required: [paper_id, title, sources]
+      properties:
+        paper_id: {type: string, format: uuid}
+        doi: {type: [string, 'null']}
+        title: {type: string}
+        year: {type: [integer, 'null']}
+        venue: {type: [string, 'null']}
+        sources:
+          type: array
+          items: {type: object}
+        inclusion: {type: [boolean, 'null']}
+        exclusion_reason: {type: [string, 'null']}
+    RunCreate:
+      type: object
+      required: [protocol_id, template_id, input_artifact_ids]
+      properties:
+        protocol_id: {type: string, format: uuid}
+        template_id: {type: string}
+        input_artifact_ids:
+          type: array
+          items: {type: string, format: uuid}
+        parameters: {type: object}
+        random_seeds:
+          type: array
+          items: {type: integer}
+      additionalProperties: false
+    ClaimCreate:
+      type: object
+      required: [protocol_id, claim_text, claim_type, scope]
+      properties:
+        protocol_id: {type: string, format: uuid}
+        claim_text: {type: string, minLength: 10}
+        claim_type: {enum: [descriptive, associational, causal, predictive, optimality, mechanism, design_principle, literature_synthesis]}
+        scope: {type: object}
+      additionalProperties: false
+    Claim:
+      allOf:
+        - {$ref: '#/components/schemas/ClaimCreate'}
+        - type: object
+          required: [id, status, created_at]
+          properties:
+            id: {type: string, format: uuid}
+            status: {enum: [candidate, supported, mixed, refuted, withdrawn]}
+            confidence: {enum: [low, medium, high]}
+            created_at: {type: string, format: date-time}
+    TaskAccepted:
+      type: object
+      required: [task_id, status]
+      properties:
+        task_id: {type: string, format: uuid}
+        status: {type: string, const: queued}
+        events_url: {type: string}
+    TaskStatus:
+      enum: [queued, running, needs_input, blocked, failed, succeeded, cancelled]
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: {type: string}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        errors: {type: array, items: {type: object}}

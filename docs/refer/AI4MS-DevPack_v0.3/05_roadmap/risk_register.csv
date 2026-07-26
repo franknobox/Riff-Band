@@ -1,0 +1,16 @@
+risk_id,category,risk,probability,impact,early_signal,mitigation,owner,target_phase
+R01,Research validity,用户把方法推荐当作有效性证明,High,High,没有人工批准仍启动分析,设计门+免责声明+关键假设强制字段,Research Lead,W1-W10
+R02,Literature,虚构或错误 DOI/引文,Medium,Critical,无法Crossref/OpenAlex核验,确定性DOI核验+引用冻结+错误一票否决,Backend Lead,W3-W6
+R03,Extraction,摘要推断被标为全文事实,High,High,locator为空或证据等级错误,字段级evidence_level+人工队列+金标集,NLP Lead,W4-W10
+R04,Data licensing,付费/受限数据进入外部模型,Medium,Critical,license_status缺失或日志出现原文,license gate+provider policy+local runner,Data Steward,W7-W14
+R05,Privacy,PII泄露或重识别,Low,Critical,敏感字段进入日志/向量索引,数据分级+脱敏+最小权限+删除演练,Security Lead,W10-W22
+R06,Agent reliability,多Agent成本高但质量无增益,High,Medium,调用数增长且错误率不降,单Agent默认+委派增益指标+预算,Agent Lead,W1-W18
+R07,Reproducibility,环境或数据版本不可复现,High,High,结果无hash/lock/seed,artifact manifest+容器+复现CI,Compute Lead,W9-W18
+R08,Model validity,统计/优化模型形式正确但业务错误,Medium,High,单位/约束/时序无法解释,小实例+数据合同+方法审核+压力测试,Method Lead,W7-W18
+R09,Security,生成代码逃逸沙箱,Medium,Critical,网络/文件越界测试成功,默认无网络+非root+资源限制+策略测试,Security Lead,W10-W14
+R10,Product scope,过早做GUI/知识图导致延期,High,Medium,内核不稳但前端页面膨胀,Sprint退出指标+表格先行+ADR,Product Lead,W1-W10
+R11,Vendor,外部API限流/字段变化,High,Medium,错误率和空字段突升,adapter+缓存+快照+fallback+契约测试,Backend Lead,W3-W22
+R12,Evaluation,评测集被提示/模型过拟合,Medium,High,离线高分线上高修改率,隐藏集+线上审计+版本化+专家复核,Research Lead,W8-W24
+R13,Adoption,研究者认为流程负担过重,Medium,High,Gate绕过请求/中途流失,渐进模板+自动填充+展示返工节省,Product Lead,W6-W24
+R14,Governance,期刊AI披露政策变化,Medium,Medium,用户导出不符合新政策,政策配置+导出披露模板+定期复核,Research Lead,W15-W24
+R15,Commercial solvers,求解器许可不可用或成本高,Medium,Medium,CI/试点无法运行,HiGHS/OR-Tools基线+license adapter,Compute Lead,W11-W18

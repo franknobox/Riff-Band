@@ -1,0 +1,103 @@
+profile_version: 0.2.0
+name: management_science
+description: Domain profile for management science, operations research, information systems, and operations management.
+
+research_goals:
+  - describe
+  - explain
+  - causal
+  - predict
+  - optimize
+  - design
+  - synthesize
+  - theory_build
+
+lanes:
+  empirical_causal:
+    method_ids: [M02, M03, M04, M05, M06, M07, M08, M09, M10, M11, M27]
+    required_gate_sets: [common, data, empirical_causal]
+  analytical_optimization:
+    method_ids: [M15, M16, M17, M18, M19, M20, M21, M22]
+    required_gate_sets: [common, data, analytical_optimization]
+  predictive_computational:
+    method_ids: [M23, M24, M25, M26]
+    required_gate_sets: [common, data, predictive_computational]
+  behavioral_qualitative:
+    method_ids: [M04, M11, M12, M28]
+    required_gate_sets: [common, data, behavioral_qualitative]
+  synthesis_design_science:
+    method_ids: [M13, M14]
+    required_gate_sets: [common, synthesis_design_science]
+
+paper_card_fields:
+  - research_question
+  - theory_or_mechanism
+  - hypotheses_or_objective
+  - data_source
+  - sample_and_period
+  - unit_of_analysis
+  - variables_or_parameters
+  - method
+  - identification_or_solution
+  - formulas
+  - main_results
+  - diagnostics
+  - robustness
+  - limitations
+  - contribution
+
+field_value_schema:
+  required: [value, evidence_level, confidence, review_status]
+  evidence_levels: [metadata, abstract, full_text, human_verified]
+  confidence_levels: [low, medium, high]
+  review_statuses: [unreviewed, accepted, corrected, rejected]
+
+literature:
+  backends: [openalex, crossref, semantic_scholar, arxiv]
+  strategy: union_then_dedupe
+  canonical_identifiers: [doi, openalex_id]
+  dedupe_fallback: [normalized_title, first_author, publication_year]
+  preserve_preprint_published_relation: true
+  citation_count_requires_snapshot_date: true
+
+forbidden_default_topic_terms:
+  - RIS
+  - ISAC
+  - beamforming
+  - reconfigurable intelligent surface
+  - intelligent reflecting surface
+
+human_gates:
+  - G0_topic_and_existing_research
+  - G1_research_design
+  - G2_data_ethics_license
+  - G3_analysis_and_code_freeze
+  - G4_results_and_claims
+  - G5_manuscript_and_release
+
+analysis_engines:
+  python:
+    modes: [sandbox, local_runner]
+  stata:
+    modes: [batch_local_runner, batch_institution_runner]
+    license_mode: bring_your_own_license
+    pystata_enabled: false
+    initial_template_ids: [stata_data_audit, stata_ols, stata_panel_fe, stata_did]
+
+stage_agents:
+  S0_topic: topic_agent
+  S1_literature: literature_agent
+  S2_theory: theory_agent
+  S3_design: design_agent
+  S4_data: data_agent
+  S5_analysis_plan: analysis_plan_agent
+  S6_execution: stata_analyst_agent
+  S7_robustness: robustness_agent
+  S8_evidence: evidence_agent
+  S9_writing: writing_agent
+
+approval_policy:
+  agent_can_approve: false
+  team_default: four_eyes
+  individual_mode: single_reviewer_with_disclosure
+  invalidate_downstream_on_semantic_change: true

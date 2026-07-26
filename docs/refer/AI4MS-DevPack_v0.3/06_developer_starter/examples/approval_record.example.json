@@ -1,0 +1,46 @@
+{
+  "approval_request_id": "10000000-0000-4000-8000-000000000001",
+  "project_id": "10000000-0000-4000-8000-000000000002",
+  "stage_key": "S5_analysis_plan",
+  "gate_id": "G3",
+  "target_revision_id": "10000000-0000-4000-8000-000000000003",
+  "target_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "policy": "four_eyes",
+  "required_roles": ["method_reviewer"],
+  "status": "approved",
+  "requested_by": "10000000-0000-4000-8000-000000000004",
+  "requested_at": "2026-07-16T11:00:00Z",
+  "checklist": [
+    {
+      "check_id": "primary_estimand",
+      "label": "主要 estimand、样本和结果变量已经冻结",
+      "required": true,
+      "status": "passed",
+      "evidence_ids": ["10000000-0000-4000-8000-000000000005"],
+      "note": "与 Research Protocol v2 一致"
+    },
+    {
+      "check_id": "stata_code",
+      "label": "Stata do-file 与分析计划逐项对应并通过预检",
+      "required": true,
+      "status": "passed",
+      "evidence_ids": ["10000000-0000-4000-8000-000000000006"],
+      "note": "危险命令为 0"
+    }
+  ],
+  "decisions": [
+    {
+      "decision_id": "10000000-0000-4000-8000-000000000007",
+      "decision": "approved",
+      "decided_by": "10000000-0000-4000-8000-000000000008",
+      "role": "method_reviewer",
+      "comment": "批准运行基准分析；机制分析仍标记为探索性。",
+      "conflict_disclosure": "无",
+      "decided_at": "2026-07-16T12:00:00Z"
+    }
+  ],
+  "invalidated_by_revision_id": null,
+  "invalidation_reason": null,
+  "supersedes_approval_request_id": null
+}
+

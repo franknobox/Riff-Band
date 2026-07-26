@@ -1,0 +1,49 @@
+{
+  "as_of_date": "2026-07-12",
+  "record_count": 100,
+  "journals": {
+    "Management Science": 10,
+    "Operations Research": 10,
+    "Manufacturing & Service Operations Management": 10,
+    "Production and Operations Management": 10,
+    "Journal of Operations Management": 10,
+    "Information Systems Research": 10,
+    "MIS Quarterly": 10,
+    "INFORMS Journal on Computing": 10,
+    "Transportation Science": 10,
+    "Decision Sciences": 10
+  },
+  "sample_types": {
+    "classic_high_cited": 50,
+    "recent_hot_2021_2025": 50
+  },
+  "year_min": 1956,
+  "year_max": 2024,
+  "abstract_coverage": 100,
+  "paradigms": {
+    "实证解释型": 25,
+    "规范型/处方型": 28,
+    "理论构建型": 8,
+    "因果解释型": 7,
+    "预测型/计算型": 7,
+    "证据综合型": 10,
+    "解析型/机制解释": 10,
+    "探索/理论生成型": 4,
+    "设计构建型": 1
+  },
+  "method_families": {
+    "结构方程/问卷实证": 15,
+    "优化与算法": 22,
+    "概念/理论构建": 8,
+    "回归/统计实证": 10,
+    "因果推断/计量经济学": 4,
+    "机器学习/文本与预测分析": 7,
+    "随机过程/动态规划/仿真": 6,
+    "综述/理论整合/元分析": 10,
+    "解析建模": 2,
+    "博弈论/机制与契约": 8,
+    "定性/案例研究": 4,
+    "实验研究": 3,
+    "设计科学/构建研究": 1
+  }
+}

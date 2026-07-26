@@ -1,0 +1,13 @@
+aiohttp>=3.13.2
+ddgs>=9.13.1
+fastapi>=0.115
+google-genai>=1.73.1
+openai>=1.99.9
+pandas>=2.2
+pydantic>=2.12.5
+pypdf>=6.10.2
+PyYAML>=6.0.3
+python-dotenv>=1.2.1
+python-multipart>=0.0.20
+mistune>=3.1
+uvicorn>=0.34

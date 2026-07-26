@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai4ms.local/schemas/artifact_manifest.schema.json",
+  "title": "Research Artifact Manifest",
+  "type": "object",
+  "required": ["manifest_version", "project_id", "run_id", "environment", "inputs", "outputs", "created_at"],
+  "properties": {
+    "manifest_version": {"type": "string", "const": "0.1.0"},
+    "project_id": {"type": "string"},
+    "run_id": {"type": "string"},
+    "parent_run_id": {"type": ["string", "null"]},
+    "code_commit": {"type": "string"},
+    "environment": {
+      "type": "object",
+      "required": ["runtime", "lockfile_hash"],
+      "properties": {
+        "runtime": {"type": "string"},
+        "lockfile_hash": {"type": "string"},
+        "container_image": {"type": "string"},
+        "model_providers": {"type": "array", "items": {"type": "string"}},
+        "model_versions": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "parameters": {"type": "object"},
+    "random_seeds": {"type": "array", "items": {"type": "integer"}},
+    "inputs": {"type": "array", "items": {"$ref": "#/$defs/artifact"}},
+    "outputs": {"type": "array", "items": {"$ref": "#/$defs/artifact"}},
+    "logs": {"type": "array", "items": {"$ref": "#/$defs/artifact"}},
+    "created_at": {"type": "string", "format": "date-time"}
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "required": ["artifact_id", "path_or_uri", "media_type", "sha256", "size_bytes"],
+      "properties": {
+        "artifact_id": {"type": "string"},
+        "path_or_uri": {"type": "string"},
+        "media_type": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "size_bytes": {"type": "integer", "minimum": 0},
+        "license": {"type": "string"},
+        "pii_class": {"enum": ["none", "low", "sensitive", "restricted"]},
+        "description": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

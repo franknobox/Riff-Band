@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai4ms.local/schemas/stata_run.schema.json",
+  "title": "AI4MS Stata Run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "stata_run_id",
+    "project_id",
+    "protocol_id",
+    "analysis_plan_revision_id",
+    "do_file_artifact_id",
+    "do_file_sha256",
+    "runner_profile_id",
+    "engine",
+    "license_mode",
+    "input_artifact_ids",
+    "required_gate_ids",
+    "preflight",
+    "status",
+    "requested_by",
+    "requested_at"
+  ],
+  "properties": {
+    "stata_run_id": {"type": "string", "format": "uuid"},
+    "project_id": {"type": "string", "format": "uuid"},
+    "protocol_id": {"type": "string", "format": "uuid"},
+    "analysis_plan_revision_id": {"type": "string", "format": "uuid"},
+    "do_file_artifact_id": {"type": "string", "format": "uuid"},
+    "do_file_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "runner_profile_id": {"type": "string", "format": "uuid"},
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "edition", "mode"],
+      "properties": {
+        "name": {"const": "stata"},
+        "version": {"type": "string"},
+        "edition": {"enum": ["BE", "SE", "MP", "StataNow", "unknown"]},
+        "mode": {"enum": ["batch", "pystata", "local_import"]},
+        "os": {"type": "string"},
+        "locale": {"type": "string"}
+      }
+    },
+    "license_mode": {"enum": ["user_byol", "institution_network", "institution_compute_server"]},
+    "input_artifact_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "format": "uuid"}},
+    "data_contract_ids": {"type": "array", "items": {"type": "string", "format": "uuid"}},
+    "required_gate_ids": {
+      "type": "array",
+      "contains": {"const": "G3"},
+      "items": {"enum": ["G0", "G1", "G2", "G3", "G4", "G5"]}
+    },
+    "parameters": {"type": "object"},
+    "seed": {"type": ["integer", "null"], "minimum": 0},
+    "resource_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "timeout_seconds": {"type": "integer", "minimum": 1},
+        "memory_mb": {"type": "integer", "minimum": 256},
+        "max_output_mb": {"type": "integer", "minimum": 1},
+        "network_policy": {"enum": ["none", "approved_allowlist"]}
+      }
+    },
+    "package_manifest": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "source", "version_or_date", "approved"],
+        "properties": {
+          "command": {"type": "string"},
+          "source": {"type": "string"},
+          "version_or_date": {"type": "string"},
+          "checksum": {"type": ["string", "null"]},
+          "approved": {"type": "boolean"}
+        }
+      }
+    },
+    "preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_passed", "variables_passed", "license_passed", "gate_passed", "issues"],
+      "properties": {
+        "policy_passed": {"type": "boolean"},
+        "variables_passed": {"type": "boolean"},
+        "license_passed": {"type": "boolean"},
+        "gate_passed": {"type": "boolean"},
+        "issues": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "status": {"enum": ["draft", "queued", "running", "needs_input", "blocked", "failed", "succeeded", "cancelled"]},
+    "requested_by": {"type": "string", "format": "uuid"},
+    "requested_at": {"type": "string", "format": "date-time"},
+    "started_at": {"type": ["string", "null"], "format": "date-time"},
+    "finished_at": {"type": ["string", "null"], "format": "date-time"},
+    "exit_code": {"type": ["integer", "null"]},
+    "input_data_signatures": {"type": "object", "additionalProperties": {"type": "string"}},
+    "log_artifact_ids": {"type": "array", "items": {"type": "string", "format": "uuid"}},
+    "output_artifact_ids": {"type": "array", "items": {"type": "string", "format": "uuid"}},
+    "manifest_artifact_id": {"type": ["string", "null"], "format": "uuid"}
+  }
+}
+

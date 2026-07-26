@@ -1,0 +1,15 @@
+# AOrchestra Agent 运行配置
+# Copy to aorchestra.yaml and customize.
+
+main_model: your-model-name
+mode: auto                       # single | multi | auto
+profile_name: generic
+
+sub_models:
+  - your-model-name
+
+sources_dir: workspace/sources
+workspace_dir: workspace         # 工作区根目录 (output, sessions, sources)
+max_attempts: 6
+max_subagent_steps: 12
+subagent_process_timeout_seconds: 300

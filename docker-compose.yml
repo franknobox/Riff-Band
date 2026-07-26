@@ -1,0 +1,35 @@
+services:
+  ai4ms-workbench:
+    build:
+      context: .
+    image: ai4ms-workbench:competition
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      AI4MS_DATA_DIR: /app/data
+      AI4MS_MODEL: ${AI4MS_MODEL:-deepseek-v4-pro}
+      AI4MS_FALLBACK_MODELS: ${AI4MS_FALLBACK_MODELS:-deepseek-v4-flash}
+      AI4MS_INFERENCE_TIMEOUT_SECONDS: ${AI4MS_INFERENCE_TIMEOUT_SECONDS:-90}
+      AI4MS_INFERENCE_MAX_ATTEMPTS: ${AI4MS_INFERENCE_MAX_ATTEMPTS:-2}
+      AI4MS_INFERENCE_MAX_TOKENS: ${AI4MS_INFERENCE_MAX_TOKENS:-4000}
+      AUTOENV_OPENAI_API_KEY: ${AUTOENV_OPENAI_API_KEY:-}
+      AUTOENV_OPENAI_BASE_URL: ${AUTOENV_OPENAI_BASE_URL:-https://api.deepseek.com}
+      AUTOENV_OPENAI_MODELS: ${AUTOENV_OPENAI_MODELS:-deepseek-v4-pro,deepseek-v4-flash}
+      AUTOENV_DEEPSEEK_V4_PRO_API_KEY: ${AUTOENV_DEEPSEEK_V4_PRO_API_KEY:-}
+      AUTOENV_DEEPSEEK_V4_FLASH_API_KEY: ${AUTOENV_DEEPSEEK_V4_FLASH_API_KEY:-}
+      SERPER_API_KEY: ${SERPER_API_KEY:-}
+      AI4MS_AO_MAX_ATTEMPTS: ${AI4MS_AO_MAX_ATTEMPTS:-2}
+      AI4MS_AO_MAX_SUBAGENT_STEPS: ${AI4MS_AO_MAX_SUBAGENT_STEPS:-7}
+      AI4MS_AO_MAX_PARALLEL: ${AI4MS_AO_MAX_PARALLEL:-3}
+      AI4MS_AO_TIMEOUT_SECONDS: ${AI4MS_AO_TIMEOUT_SECONDS:-150}
+      AI4MS_MAX_DATA_UPLOAD_BYTES: ${AI4MS_MAX_DATA_UPLOAD_BYTES:-1073741824}
+      AI4MS_STATA_RUNNER_URL: ${AI4MS_STATA_RUNNER_URL:-http://host.docker.internal:8765}
+      AI4MS_STATA_RUNNER_TOKEN: ${AI4MS_STATA_RUNNER_TOKEN:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ai4ms-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  ai4ms-data:

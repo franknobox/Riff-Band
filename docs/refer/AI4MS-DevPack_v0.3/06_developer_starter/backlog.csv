@@ -1,0 +1,81 @@
+id,epic,title,priority,phase,estimate_days,depends_on,acceptance_test,owner_role,status
+B001,Foundation,Add dev dependencies lockfile and CI,P0,W1,2,,A01,Backend,Not Started
+B002,Foundation,Record baseline commit and smoke run,P0,W1,1,,A02,Backend,Not Started
+B003,Domain,Create DomainProfile protocol,P0,W1,2,B001,A01,Agent,Not Started
+B004,Domain,Remove RIS and ISAC hardcoded query expansion,P0,W1,1,B003,A01,Agent,Not Started
+B005,Domain,Remove telecom hardcoded relevance scoring,P0,W1,1,B003,A01,Agent,Not Started
+B006,Domain,Replace hardcoded synthesis clusters with taxonomy interface,P0,W2,2,B003,A01,Agent,Not Started
+B007,Evaluation,Create three management-science benchmark fixtures,P0,W1,2,B001,A01,Research,Not Started
+B008,Protocol,Implement ResearchProtocol Pydantic models,P0,W2,3,B003,A02,Backend,Not Started
+B009,Protocol,Implement legacy ResearchRequest adapter,P0,W2,2,B008,A02,Backend,Not Started
+B010,Protocol,Implement immutable protocol versions and G1 approval,P0,W3,3,B008,A08,Backend,Not Started
+B011,Literature,Split literature backends into adapters,P0,W3,3,B001,A03,Backend,Not Started
+B012,Literature,Implement multi-source union search,P0,W3,3,B011,A03,Backend,Not Started
+B013,Literature,Implement DOI title author year dedupe,P0,W4,3,B012,A04,Backend,Not Started
+B014,Literature,Preserve preprint and published-version relations,P1,W4,2,B013,A04,Backend,Not Started
+B015,Literature,Store search protocol backend counts and raw snapshots,P0,W4,2,B012,A03,Backend,Not Started
+B016,Extraction,Implement PaperCard v2 schema with locators,P0,W5,4,B013,A06,NLP,Not Started
+B017,Extraction,Add evidence level confidence and review queue,P0,W5,3,B016,A06,NLP,Not Started
+B018,Extraction,Add GROBID full-text parsing adapter,P1,W6,4,B016,A06,NLP,Not Started
+B019,Artifacts,Implement artifact manifest hash and lineage,P0,W5,3,B008,A11,Backend,Not Started
+B020,Gates,Implement common gate registry,P0,W6,3,B008|B019,A08,Backend,Not Started
+B021,Gates,Implement empirical and causal gates,P0,W8,4,B020,A12,Method,Not Started
+B022,Gates,Implement analytical and optimization gates,P0,W8,4,B020,A13,Method,Not Started
+B023,Gates,Implement predictive and computational gates,P0,W9,4,B020,A14,Method,Not Started
+B024,Knowledge,Load method formula and data-source registries,P0,W7,2,B008,A07,Backend,Not Started
+B025,Knowledge,Implement Design Advisor comparison and blocking,P0,W8,4,B024,A07,Agent,Not Started
+B026,Evidence,Implement Claim Evidence Assumption tables,P0,W9,4,B019,A15,Backend,Not Started
+B027,API,Create FastAPI project protocol and search endpoints,P0,W4,5,B010|B012,A03,Backend,Not Started
+B028,Web,Build Project and Research Canvas pages,P1,W5,5,B027,A08,Frontend,Not Started
+B029,Web,Build Literature screening table,P1,W6,5,B027|B013,A04,Frontend,Not Started
+B030,Web,Build Method Data and Evidence tables,P1,W10,6,B024|B026,A15,Frontend,Not Started
+B031,Compute,Build no-network Python OCI sandbox,P0,W11,5,B019,A10,Compute,Not Started
+B032,Compute,Implement run queue cancellation and event stream,P0,W12,5,B031,A11,Compute,Not Started
+B033,Compute,Add OLS FE DiD analysis templates,P1,W12,4,B031|B021,A12,Method,Not Started
+B034,Compute,Add ML baseline and time-split template,P1,W13,4,B031|B023,A14,Method,Not Started
+B035,Compute,Add LP MILP template and solver adapter,P1,W13,4,B031|B022,A13,Method,Not Started
+B036,Data,Implement Data Contract and license gate,P0,W9,4,B010,A09,Data,Not Started
+B037,Data,Add first five public data connectors,P1,W13,6,B036,A09,Data,Not Started
+B038,Repro,Implement Repro Auditor and clean-room rerun,P0,W15,5,B032,A11,Compute,Not Started
+B039,Robustness,Implement robustness matrix and claim confidence rules,P0,W16,5,B021|B022|B023|B026,A12|A13|A14,Method,Not Started
+B040,Writing,Generate draft only from approved claims,P0,W17,4,B026|B039,A15,Agent,Not Started
+B041,Writing,Add DOI entailment and number-table consistency audit,P0,W18,5,B040,A05|A16,Backend,Not Started
+B042,Governance,Add OIDC project RBAC and audit events,P0,W19,6,B027,A17,Security,Not Started
+B043,Governance,Implement retention deletion and project export,P1,W21,5,B042,A18|A19,Security,Not Started
+B044,Pilot,Run six cross-lane pilot projects,P0,W22,10,B038|B041|B042,A20,Research,Not Started
+B045,Release,Security performance recovery and release review,P0,W24,8,B044,A20,All,Not Started
+B046,TopicScout,Implement TopicBrief schema and approval,P0,W3,2,B008,A30,Backend,Not Started
+B047,TopicScout,Build multilingual concept-block Query Planner,P0,W3,3,B046,A21,Agent,Not Started
+B048,TopicScout,Implement horizon systematic and counter-search stages,P0,W4,3,B012|B047,A21|A25,Backend,Not Started
+B049,TopicScout,Store search protocol counts errors and snapshots,P0,W4,2,B015|B048,A28,Backend,Not Started
+B050,TopicScout,Create research-stream clustering candidates,P1,W5,3,B016|B049,A24,NLP,Not Started
+B051,TopicScout,Implement consensus conflict unknown synthesis,P0,W5,4,B016|B050,A24,Agent,Not Started
+B052,TopicScout,Implement six-type GapCandidate with counter-search,P0,W5,4,B048|B051,A25|A26,Agent,Not Started
+B053,TopicScout,Link gap candidates to data and method feasibility,P0,W6,3,B024|B025|B052,A26,Method,Not Started
+B054,TopicScout,Generate two to three auditable topic candidates,P0,W6,3,B052|B053,A30,Agent,Not Started
+B055,TopicScout,Compose versioned related research report,P0,W6,4,B049|B051|B054,A23|A24,Backend,Not Started
+B056,TopicScout,Add DOI number status and novelty-language audit,P0,W6,3,B055,A23|A25,Backend,Not Started
+B057,Gates,Implement G0 report and topic approval,P0,W6,2,B055|B056,A26|A30,Backend,Not Started
+B058,API,Add topic scout report approval and watchlist endpoints,P0,W6,4,B046|B055|B057,A28|A30,Backend,Not Started
+B059,Web,Build Topic Scout report and candidate approval pages,P1,W7,6,B058,A27,Frontend,Not Started
+B060,Evaluation,Create ten-topic scout benchmark and reader test,P0,W3,3,B007,A21|A25|A27,Research,Not Started
+B061,Revision,Implement research asset and immutable revision models,P0,W7,4,B019,A36,Backend,Not Started
+B062,Revision,Implement field text and code patch decisions,P0,W7,4,B061,A36,Backend,Not Started
+B063,Approval,Implement generic G0 to G5 approval requests and decisions,P0,W8,4,B020|B061,A37,Backend,Not Started
+B064,Approval,Implement single four-eyes and multi-signoff policies,P0,W8,3,B063,A37,Security,Not Started
+B065,Approval,Implement semantic dependency invalidation engine,P0,W9,4,B061|B063,A38,Backend,Not Started
+B066,StageAgents,Create S0 to S9 stage agent registry,P0,W8,3,B003|B020,A39,Agent,Not Started
+B067,StageAgents,Implement stage session handoff readiness API,P0,W9,4,B066|B061,A39,Backend,Not Started
+B068,Web,Build Stage Workspace revision diff and patch UI,P1,W10,6,B062|B067,A36,Frontend,Not Started
+B069,Web,Build Approval Inbox review checklist and signoff UI,P1,W10,6,B063|B064|B065,A37|A38,Frontend,Not Started
+B070,Stata,Define StataRunner profile preflight submit collect interface,P0,W11,3,B032|B036,A31,Compute,Not Started
+B071,Stata,Implement local and institution batch runner adapters,P0,W11,5,B070,A31,Compute,Not Started
+B072,Stata,Implement do-file policy linter and variable preflight,P0,W12,4,B070,A34,Security,Not Started
+B073,Stata,Implement license seat and G3 hash guard,P0,W12,3,B063|B070,A34,Backend,Not Started
+B074,Stata,Capture SMCL text log exit code and task events,P0,W12,4,B071,A31,Compute,Not Started
+B075,Stata,Create environment data signature and artifact manifest,P0,W13,4,B074,A33|A35,Compute,Not Started
+B076,Stata,Add data audit OLS and FE templates,P0,W13,4,B071|B024,A32,Method,Not Started
+B077,Stata,Add DiD event study diagnostics and robustness template,P1,W14,5,B076|B021,A32|A35,Method,Not Started
+B078,Stata,Parse collect etable tables and figures into evidence artifacts,P1,W14,4,B075|B026,A35,Backend,Not Started
+B079,StageAgents,Connect S5 S6 S7 S8 agents to Stata and approvals,P0,W14,5,B066|B068|B073|B078,A39|A40,Agent,Not Started
+B080,Evaluation,Run Stata approval invalidation and ten-stage collaboration benchmark,P0,W14,5,B060|B079,A31|A38|A40,Research,Not Started

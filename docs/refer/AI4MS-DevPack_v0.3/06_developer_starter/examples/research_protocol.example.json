@@ -1,0 +1,80 @@
+{
+  "protocol_version": "0.1.0",
+  "project": {
+    "project_id": "ai_adoption_performance",
+    "title": "企业采用生成式AI对运营绩效的影响",
+    "owner": "researcher@example.org",
+    "status": "draft",
+    "created_at": "2026-07-12T00:00:00Z",
+    "target_outlet": "Management Science / ISR",
+    "non_goals": ["不把文本相关性直接解释为因果", "不上传受限企业微观数据到外部模型"]
+  },
+  "question": {
+    "phenomenon": "企业生成式AI采用与流程自动化/增强",
+    "question_text": "生成式AI采用是否以及通过何种机制改善企业运营绩效？",
+    "goal": "causal",
+    "unit_of_analysis": "firm-quarter",
+    "time_scope": "2019Q1-2027Q4",
+    "geography": "中国或美国上市公司，最终按数据可得性冻结",
+    "theory_anchors": ["task-technology fit", "organizational learning", "resource-based view"],
+    "expected_contribution": "区分自动化与增强机制，并识别组织互补资产的边界条件",
+    "falsification": "在可信处理定义与识别设计下，AI采用前不存在差异趋势且采用后主要结果无改善"
+  },
+  "design": {
+    "lane": "empirical_causal",
+    "primary_method_id": "M06",
+    "secondary_method_ids": ["M10"],
+    "alternatives_considered": ["M07 工具变量：需额外寻找有效外生工具", "M09 合成控制：仅适合少量处理单位"],
+    "decision_rationale": "若采用时间可观测且存在未采用企业，可用分期处理DiD估计动态效应；DML仅用于高维控制与异质性，不替代识别。",
+    "identification_or_optimality_target": "ATT by cohort and event time",
+    "human_approved": true,
+    "approved_by": "method_reviewer@example.org",
+    "approved_at": "2026-07-13T00:00:00Z"
+  },
+  "assumptions": [
+    {
+      "assumption_id": "A1",
+      "category": "identification",
+      "statement": "在控制企业与时间效应后，未处理潜在结果满足组群平行趋势",
+      "testability": "partially_testable",
+      "planned_check": "事件研究处理前系数、替代对照组、placebo处理时间",
+      "status": "open",
+      "waiver_reason": ""
+    }
+  ],
+  "data_contracts": [
+    {
+      "data_id": "firm_panel_v1",
+      "source_id": "D15",
+      "source_url": "https://www.gtarsc.com/",
+      "access_status": "requested",
+      "license_status": "pending",
+      "unit_of_observation": "firm-quarter",
+      "time_coverage": "2019Q1-2027Q4",
+      "version_or_snapshot": "to be frozen",
+      "pii_class": "none",
+      "variables": ["ai_adoption", "operating_margin", "inventory_turnover", "controls"],
+      "join_keys": ["firm_id", "quarter"],
+      "quality_checks": ["entity match rate", "duplicate firm-quarter", "missingness by treatment", "outlier policy"],
+      "storage_policy": "licensed data local-only; upload aggregate results and manifests"
+    }
+  ],
+  "analysis_plan": {
+    "estimand": "group-time ATT and event-time ATT",
+    "primary_outcome_or_objective": "operating margin and inventory turnover",
+    "primary_specification": "Callaway-Sant'Anna staggered adoption DiD",
+    "formula_ids": ["CAUS-01", "CAUS-02", "CAUS-03"],
+    "baseline": "firm and calendar-time adjusted outcome trends",
+    "split_strategy": "not applicable; cohort/time design",
+    "diagnostics": ["pre-trend", "treatment timing", "overlap", "cluster structure"],
+    "robustness": ["alternative treatment definition", "not-yet-treated controls", "placebo date", "firm trends"],
+    "heterogeneity_or_sensitivity": ["digital capability", "task routineness", "industry"],
+    "stopping_rule": "primary specification and planned robustness are frozen before outcome inspection",
+    "preregistered_at": "2026-07-14T00:00:00Z"
+  },
+  "gates": [
+    {"gate_id": "G1", "name": "research design", "required_checks": ["question complete", "alternatives considered", "assumptions listed"], "approval_mode": "deterministic_and_human", "status": "passed", "evidence_artifact_ids": []},
+    {"gate_id": "G2", "name": "data license", "required_checks": ["license cleared", "storage policy"], "approval_mode": "deterministic_and_human", "status": "pending", "evidence_artifact_ids": []},
+    {"gate_id": "G3", "name": "analysis freeze", "required_checks": ["estimand", "primary outcomes", "diagnostics", "robustness", "stopping rule"], "approval_mode": "deterministic_and_human", "status": "pending", "evidence_artifact_ids": []}
+  ]
+}

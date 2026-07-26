@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "riffband"
+version = "0.3.0"
+description = "基于 RiffBand Agent Runtime 的管理科学 AI 科研工作台"
+requires-python = ">=3.10"
+dependencies = [
+    "aiohttp>=3.13",
+    "ddgs>=9.13",
+    "fastapi>=0.115",
+    "google-genai>=1.73",
+    "mistune>=3.1",
+    "openai>=1.99",
+    "pandas>=2.2",
+    "pydantic>=2.12",
+    "pypdf>=6.10",
+    "PyYAML>=6.0",
+    "python-dotenv>=1.2",
+    "python-multipart>=0.0.20",
+    "rich>=13",
+    "uvicorn>=0.34",
+]
+
+[project.scripts]
+riffband = "ui.shell:_entry"
+riffband-mcp = "mcp_server:_entry"
+ai4ms-web = "ai4ms.api.app:_entry"
+ai4ms-stata-runner = "ai4ms.runners.local_app:_entry"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"ai4ms.knowledge" = ["data/*.json"]
+research = ["*.css", "*.js"]

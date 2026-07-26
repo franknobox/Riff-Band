@@ -1,0 +1,103 @@
+{
+  "schema_version": "0.2.0",
+  "report_id": "10000000-0000-4000-8000-000000000001",
+  "project_id": "20000000-0000-4000-8000-000000000001",
+  "title": "生成式 AI 使用与企业创新绩效：相关研究与选题建议",
+  "generated_at": "2026-07-16T12:00:00Z",
+  "topic_brief": {
+    "idea": "研究生成式 AI 的使用是否提升企业创新绩效",
+    "objective": "causal",
+    "units": ["firm"],
+    "geography": ["China"],
+    "time_window": "2022-2026",
+    "concepts": [
+      {
+        "label": "generative_ai_adoption",
+        "terms": ["generative AI adoption", "large language model use", "生成式人工智能采用"],
+        "exclude_terms": ["AI patent only"]
+      },
+      {
+        "label": "innovation_performance",
+        "terms": ["innovation performance", "patent quality", "new product innovation"],
+        "exclude_terms": []
+      }
+    ],
+    "seed_paper_ids": [],
+    "approved": true,
+    "approved_by": "user-001",
+    "approved_at": "2026-07-16T10:00:00Z"
+  },
+  "search_protocol": {
+    "protocol_id": "30000000-0000-4000-8000-000000000001",
+    "databases": ["OpenAlex", "Crossref", "Semantic Scholar", "arXiv"],
+    "queries": ["(generative AI OR large language model) AND firm AND innovation"],
+    "languages": ["en", "zh"],
+    "year_from": 2018,
+    "year_to": 2026,
+    "searched_at": "2026-07-16T10:30:00Z",
+    "counts": {"identified": 0, "deduplicated": 0, "screened": 0, "included": 0},
+    "snapshot_artifact_ids": ["artifact-search-snapshot-001"],
+    "coverage_notes": ["示例文件未填入真实检索结果", "正式报告必须记录数据库覆盖与访问限制"]
+  },
+  "landscape": {
+    "paper_ids": [],
+    "streams": [],
+    "timeline_summary": "待完成真实检索与人工筛选后生成。"
+  },
+  "syntheses": [],
+  "gap_candidates": [
+    {
+      "gap_id": "GAP-001",
+      "type": "data",
+      "statement": "企业层面的生成式 AI 实际使用数据可能不足。",
+      "status": "candidate",
+      "supporting_evidence_ids": [],
+      "opposing_evidence_ids": [],
+      "counter_search_protocol_ids": ["counter-search-001"],
+      "coverage_limitations": ["尚未接入机构中文数据库", "示例没有全文筛选"],
+      "confidence": 0.2,
+      "human_approved": false,
+      "approved_by": null
+    }
+  ],
+  "topic_candidates": [
+    {
+      "candidate_id": "TC-001",
+      "research_question": "企业采用生成式 AI 是否提升高质量创新产出，以及组织学习能力是否构成作用机制？",
+      "contribution": "候选贡献，需在完整检索后确认。",
+      "minimum_viable_data": "企业—年份面板、可验证的采用时点、创新结果与基本控制变量。",
+      "primary_method_ids": ["difference_in_differences"],
+      "alternative_method_ids": ["event_study", "instrumental_variables"],
+      "critical_assumptions": ["采用时点可观测", "平行趋势或其他识别条件可辩护"],
+      "nearest_prior_paper_ids": [],
+      "risks": ["采用指标可能只是宣传而非实际使用", "技术采用具有选择性"],
+      "scores": {
+        "novelty": 2,
+        "importance": 4,
+        "feasibility": 2,
+        "falsifiability": 4,
+        "rationale": "仅为 schema 示例；完整评分必须引用检索和数据可行性证据。"
+      },
+      "recommendation": "narrow"
+    }
+  ],
+  "data_method_feasibility": {
+    "data_source_ids": [],
+    "method_ids": ["difference_in_differences", "event_study"],
+    "blocking_issues": ["需要验证企业采用时点数据是否真实可得"]
+  },
+  "limitations": ["这是结构示例，不是对该课题的真实相关研究报告。"],
+  "recommended_next_steps": ["运行多源检索", "人工确认概念边界", "验证采用数据可得性"],
+  "provenance": {
+    "source_artifact_ids": ["artifact-search-snapshot-001"],
+    "model_calls": [],
+    "human_edits": ["创建示例"]
+  },
+  "approval": {
+    "status": "draft",
+    "approved_candidate_id": null,
+    "decided_by": null,
+    "decided_at": null,
+    "reason": null
+  }
+}

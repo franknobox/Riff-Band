@@ -1,0 +1,62 @@
+{
+  "stata_run_id": "20000000-0000-4000-8000-000000000001",
+  "project_id": "20000000-0000-4000-8000-000000000002",
+  "protocol_id": "20000000-0000-4000-8000-000000000003",
+  "analysis_plan_revision_id": "20000000-0000-4000-8000-000000000004",
+  "do_file_artifact_id": "20000000-0000-4000-8000-000000000005",
+  "do_file_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "runner_profile_id": "20000000-0000-4000-8000-000000000006",
+  "engine": {
+    "name": "stata",
+    "version": "19",
+    "edition": "MP",
+    "mode": "batch",
+    "os": "linux",
+    "locale": "en_US"
+  },
+  "license_mode": "institution_network",
+  "input_artifact_ids": ["20000000-0000-4000-8000-000000000007"],
+  "data_contract_ids": ["20000000-0000-4000-8000-000000000008"],
+  "required_gate_ids": ["G2", "G3"],
+  "parameters": {
+    "outcome": "innovation_quality",
+    "treatment": "ai_adoption",
+    "panel_id": "firm_id",
+    "time_id": "year",
+    "cluster": "firm_id"
+  },
+  "seed": 20260716,
+  "resource_limits": {
+    "timeout_seconds": 3600,
+    "memory_mb": 8192,
+    "max_output_mb": 1024,
+    "network_policy": "none"
+  },
+  "package_manifest": [
+    {
+      "command": "reghdfe",
+      "source": "approved organization ado mirror",
+      "version_or_date": "2026-06-01",
+      "checksum": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "approved": true
+    }
+  ],
+  "preflight": {
+    "policy_passed": true,
+    "variables_passed": true,
+    "license_passed": true,
+    "gate_passed": true,
+    "issues": []
+  },
+  "status": "queued",
+  "requested_by": "20000000-0000-4000-8000-000000000009",
+  "requested_at": "2026-07-16T13:00:00Z",
+  "started_at": null,
+  "finished_at": null,
+  "exit_code": null,
+  "input_data_signatures": {},
+  "log_artifact_ids": [],
+  "output_artifact_ids": [],
+  "manifest_artifact_id": null
+}
+

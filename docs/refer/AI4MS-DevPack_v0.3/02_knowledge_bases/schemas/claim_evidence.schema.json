@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai4ms.local/schemas/claim_evidence.schema.json",
+  "title": "Claim–Evidence–Assumption Record",
+  "type": "object",
+  "required": ["claim_id", "claim_text", "claim_type", "status", "evidence", "assumptions", "scope", "created_at"],
+  "properties": {
+    "claim_id": {"type": "string"},
+    "claim_text": {"type": "string", "minLength": 10},
+    "claim_type": {"enum": ["descriptive", "associational", "causal", "predictive", "optimality", "mechanism", "design_principle", "literature_synthesis"]},
+    "status": {"enum": ["candidate", "supported", "mixed", "refuted", "withdrawn"]},
+    "confidence": {"enum": ["low", "medium", "high"]},
+    "scope": {
+      "type": "object",
+      "required": ["population_or_system", "time", "geography"],
+      "properties": {
+        "population_or_system": {"type": "string"},
+        "time": {"type": "string"},
+        "geography": {"type": "string"},
+        "boundary_conditions": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["evidence_id", "evidence_type", "artifact_id", "locator", "direction", "strength"],
+        "properties": {
+          "evidence_id": {"type": "string"},
+          "evidence_type": {"enum": ["paper", "data", "estimate", "proof", "simulation", "experiment", "qualitative_excerpt", "reviewer_note"]},
+          "artifact_id": {"type": "string"},
+          "locator": {"type": "string"},
+          "direction": {"enum": ["supports", "contradicts", "qualifies"]},
+          "strength": {"enum": ["weak", "moderate", "strong"]},
+          "method_id": {"type": "string"},
+          "run_id": {"type": "string"},
+          "source_url": {"type": "string", "format": "uri"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["assumption_id", "impact_if_violated"],
+        "properties": {
+          "assumption_id": {"type": "string"},
+          "impact_if_violated": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "counterevidence": {"type": "array", "items": {"type": "string"}},
+    "uncertainty_note": {"type": "string"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"}
+  },
+  "additionalProperties": false
+}

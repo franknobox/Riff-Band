@@ -1,0 +1,43 @@
+flags:
+  protocol_v2:
+    default: false
+    rollout: internal
+  literature_union_search:
+    default: false
+    rollout: benchmark_then_internal
+  paper_card_v2:
+    default: false
+    rollout: shadow
+  artifact_manifest_v2:
+    default: true
+    rollout: internal
+  semantic_gates:
+    default: false
+    rollout: advisory_only
+  immutable_revisions:
+    default: true
+    rollout: internal
+  human_approval_v2:
+    default: false
+    rollout: benchmark_then_internal
+  approval_invalidation:
+    default: false
+    rollout: shadow
+  stage_agent_registry:
+    default: false
+    rollout: internal
+  agent_patch_suggestions:
+    default: false
+    rollout: internal
+  compute_sandbox:
+    default: false
+    rollout: local_development
+  stata_batch_runner:
+    default: false
+    rollout: local_development_byol
+  pystata_adapter:
+    default: false
+    rollout: disabled_until_batch_benchmark
+  external_llm_for_licensed_data:
+    default: false
+    locked: true

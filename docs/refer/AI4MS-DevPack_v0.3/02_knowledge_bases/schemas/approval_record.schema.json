@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai4ms.local/schemas/approval_record.schema.json",
+  "title": "AI4MS Approval Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "approval_request_id",
+    "project_id",
+    "stage_key",
+    "gate_id",
+    "target_revision_id",
+    "target_sha256",
+    "policy",
+    "status",
+    "requested_by",
+    "requested_at",
+    "checklist",
+    "decisions"
+  ],
+  "properties": {
+    "approval_request_id": {"type": "string", "format": "uuid"},
+    "project_id": {"type": "string", "format": "uuid"},
+    "stage_key": {
+      "enum": [
+        "S0_topic",
+        "S1_literature",
+        "S2_theory",
+        "S3_design",
+        "S4_data",
+        "S5_analysis_plan",
+        "S6_execution",
+        "S7_robustness",
+        "S8_evidence",
+        "S9_writing"
+      ]
+    },
+    "gate_id": {"enum": ["G0", "G1", "G2", "G3", "G4", "G5"]},
+    "target_revision_id": {"type": "string", "format": "uuid"},
+    "target_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "policy": {"enum": ["single_reviewer", "four_eyes", "multi_signoff"]},
+    "required_roles": {
+      "type": "array",
+      "items": {"enum": ["researcher", "supervisor", "pi", "method_reviewer", "data_steward", "ethics_reviewer", "repro_reviewer", "release_owner"]},
+      "uniqueItems": true
+    },
+    "status": {"enum": ["draft", "in_review", "changes_requested", "approved", "rejected", "withdrawn", "invalidated", "superseded"]},
+    "requested_by": {"type": "string", "format": "uuid"},
+    "requested_at": {"type": "string", "format": "date-time"},
+    "checklist": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "label", "required", "status"],
+        "properties": {
+          "check_id": {"type": "string"},
+          "label": {"type": "string", "minLength": 1},
+          "required": {"type": "boolean"},
+          "status": {"enum": ["pending", "passed", "failed", "waived"]},
+          "evidence_ids": {"type": "array", "items": {"type": "string", "format": "uuid"}},
+          "note": {"type": "string"}
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["decision_id", "decision", "decided_by", "role", "comment", "decided_at"],
+        "properties": {
+          "decision_id": {"type": "string", "format": "uuid"},
+          "decision": {"enum": ["approved", "changes_requested", "rejected", "withdrawn"]},
+          "decided_by": {"type": "string", "format": "uuid"},
+          "role": {"type": "string"},
+          "comment": {"type": "string"},
+          "conflict_disclosure": {"type": "string"},
+          "decided_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    },
+    "invalidated_by_revision_id": {"type": ["string", "null"], "format": "uuid"},
+    "invalidation_reason": {"type": ["string", "null"]},
+    "supersedes_approval_request_id": {"type": ["string", "null"], "format": "uuid"}
+  }
+}
+

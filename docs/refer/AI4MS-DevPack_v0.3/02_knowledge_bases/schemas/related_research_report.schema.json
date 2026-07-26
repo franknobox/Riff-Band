@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai4ms.example/schemas/related_research_report.schema.json",
+  "title": "AI4MS Related Research Report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "report_id",
+    "project_id",
+    "topic_brief",
+    "search_protocol",
+    "landscape",
+    "syntheses",
+    "gap_candidates",
+    "topic_candidates",
+    "limitations",
+    "provenance",
+    "approval"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.2.0"},
+    "report_id": {"type": "string", "format": "uuid"},
+    "project_id": {"type": "string", "format": "uuid"},
+    "title": {"type": "string", "minLength": 3},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "topic_brief": {"$ref": "#/$defs/topicBrief"},
+    "search_protocol": {"$ref": "#/$defs/searchProtocol"},
+    "landscape": {
+      "type": "object",
+      "required": ["paper_ids", "streams"],
+      "properties": {
+        "paper_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "streams": {"type": "array", "items": {"$ref": "#/$defs/researchStream"}},
+        "timeline_summary": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "syntheses": {"type": "array", "items": {"$ref": "#/$defs/synthesis"}},
+    "gap_candidates": {"type": "array", "items": {"$ref": "#/$defs/gapCandidate"}},
+    "topic_candidates": {"type": "array", "minItems": 1, "maxItems": 5, "items": {"$ref": "#/$defs/topicCandidate"}},
+    "data_method_feasibility": {
+      "type": "object",
+      "properties": {
+        "data_source_ids": {"type": "array", "items": {"type": "string"}},
+        "method_ids": {"type": "array", "items": {"type": "string"}},
+        "blocking_issues": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "limitations": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "recommended_next_steps": {"type": "array", "items": {"type": "string"}},
+    "provenance": {"$ref": "#/$defs/provenance"},
+    "approval": {"$ref": "#/$defs/approval"}
+  },
+  "$defs": {
+    "topicBrief": {
+      "type": "object",
+      "required": ["idea", "objective", "units", "concepts", "approved"],
+      "properties": {
+        "idea": {"type": "string", "minLength": 5},
+        "objective": {"enum": ["explore", "explain", "causal", "predict", "optimize", "synthesize", "theory_build"]},
+        "units": {"type": "array", "items": {"type": "string"}},
+        "geography": {"type": "array", "items": {"type": "string"}},
+        "time_window": {"type": "string"},
+        "concepts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/conceptBlock"}},
+        "seed_paper_ids": {"type": "array", "items": {"type": "string"}},
+        "approved": {"type": "boolean"},
+        "approved_by": {"type": ["string", "null"]},
+        "approved_at": {"type": ["string", "null"], "format": "date-time"}
+      },
+      "additionalProperties": false
+    },
+    "conceptBlock": {
+      "type": "object",
+      "required": ["label", "terms"],
+      "properties": {
+        "label": {"type": "string"},
+        "terms": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "exclude_terms": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "searchProtocol": {
+      "type": "object",
+      "required": ["protocol_id", "databases", "queries", "searched_at", "counts", "snapshot_artifact_ids"],
+      "properties": {
+        "protocol_id": {"type": "string", "format": "uuid"},
+        "databases": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "queries": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "languages": {"type": "array", "items": {"type": "string"}},
+        "year_from": {"type": ["integer", "null"], "minimum": 1800},
+        "year_to": {"type": ["integer", "null"], "minimum": 1800},
+        "searched_at": {"type": "string", "format": "date-time"},
+        "counts": {
+          "type": "object",
+          "required": ["identified", "deduplicated", "screened", "included"],
+          "properties": {
+            "identified": {"type": "integer", "minimum": 0},
+            "deduplicated": {"type": "integer", "minimum": 0},
+            "screened": {"type": "integer", "minimum": 0},
+            "included": {"type": "integer", "minimum": 0}
+          },
+          "additionalProperties": false
+        },
+        "snapshot_artifact_ids": {"type": "array", "items": {"type": "string"}},
+        "coverage_notes": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "researchStream": {
+      "type": "object",
+      "required": ["stream_id", "name", "description", "paper_ids", "naming_evidence"],
+      "properties": {
+        "stream_id": {"type": "string"},
+        "name": {"type": "string"},
+        "description": {"type": "string"},
+        "paper_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "naming_evidence": {"type": "string"},
+        "review_status": {"enum": ["machine_draft", "human_edited", "human_verified"]}
+      },
+      "additionalProperties": false
+    },
+    "synthesis": {
+      "type": "object",
+      "required": ["synthesis_id", "statement", "status", "supporting_evidence_ids", "opposing_evidence_ids", "confidence"],
+      "properties": {
+        "synthesis_id": {"type": "string"},
+        "statement": {"type": "string"},
+        "status": {"enum": ["supported", "contested", "limited", "not_found", "inference", "human_verified"]},
+        "supporting_evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "opposing_evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "qualifiers": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "gapCandidate": {
+      "type": "object",
+      "required": ["gap_id", "type", "statement", "status", "supporting_evidence_ids", "counter_search_protocol_ids", "coverage_limitations", "confidence", "human_approved"],
+      "properties": {
+        "gap_id": {"type": "string"},
+        "type": {"enum": ["theory", "context", "data", "method", "time", "practice"]},
+        "statement": {"type": "string"},
+        "status": {"enum": ["candidate", "supported_gap", "rejected", "needs_review"]},
+        "supporting_evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "opposing_evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "counter_search_protocol_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "coverage_limitations": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "human_approved": {"type": "boolean"},
+        "approved_by": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "topicCandidate": {
+      "type": "object",
+      "required": ["candidate_id", "research_question", "contribution", "minimum_viable_data", "primary_method_ids", "critical_assumptions", "risks", "scores", "recommendation"],
+      "properties": {
+        "candidate_id": {"type": "string"},
+        "research_question": {"type": "string"},
+        "contribution": {"type": "string"},
+        "minimum_viable_data": {"type": "string"},
+        "primary_method_ids": {"type": "array", "items": {"type": "string"}},
+        "alternative_method_ids": {"type": "array", "items": {"type": "string"}},
+        "critical_assumptions": {"type": "array", "items": {"type": "string"}},
+        "nearest_prior_paper_ids": {"type": "array", "items": {"type": "string"}},
+        "risks": {"type": "array", "items": {"type": "string"}},
+        "scores": {
+          "type": "object",
+          "required": ["novelty", "importance", "feasibility", "falsifiability", "rationale"],
+          "properties": {
+            "novelty": {"type": "integer", "minimum": 1, "maximum": 5},
+            "importance": {"type": "integer", "minimum": 1, "maximum": 5},
+            "feasibility": {"type": "integer", "minimum": 1, "maximum": 5},
+            "falsifiability": {"type": "integer", "minimum": 1, "maximum": 5},
+            "rationale": {"type": "string"}
+          },
+          "additionalProperties": false
+        },
+        "recommendation": {"enum": ["continue", "narrow", "reframe", "merge", "pause"]}
+      },
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["source_artifact_ids", "model_calls", "human_edits"],
+      "properties": {
+        "source_artifact_ids": {"type": "array", "items": {"type": "string"}},
+        "model_calls": {"type": "array", "items": {"type": "string"}},
+        "human_edits": {"type": "array", "items": {"type": "string"}},
+        "body_sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"}
+      },
+      "additionalProperties": false
+    },
+    "approval": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {"enum": ["draft", "needs_revision", "approved", "rejected"]},
+        "approved_candidate_id": {"type": ["string", "null"]},
+        "decided_by": {"type": ["string", "null"]},
+        "decided_at": {"type": ["string", "null"], "format": "date-time"},
+        "reason": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

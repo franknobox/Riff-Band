@@ -1,0 +1,48 @@
+﻿formula_id,category,name,latex,use_when,notation,assumptions,diagnostics,packages,warning
+STAT-01,描述统计,样本均值与方差,"\bar{x}=\frac{1}{n}\sum_{i=1}^{n}x_i,\quad s^2=\frac{1}{n-1}\sum_{i=1}^{n}(x_i-\bar{x})^2",概括中心与离散,n样本数；x_i观测,独立性仅影响推断，不影响定义,缺失、极端值、分组口径,numpy/pandas; R base,偏态数据同时报告中位数/IQR
+STAT-02,回归,OLS,"y_i=\beta_0+x_i'\beta+\varepsilon_i,\quad \hat\beta=(X'X)^{-1}X'y",连续结果的基准关系,X设计矩阵；β系数,线性可加；条件均值为零；满秩,残差、异方差、共线性、聚类,statsmodels; fixest,统计显著不等于因果或管理显著
+STAT-03,广义线性,Logit/Poisson,\Pr(y_i=1|x_i)=\Lambda(x_i'\beta);\quad E[y_i|x_i]=\exp(x_i'\beta),二元或计数结果,Λ为logistic CDF,链接函数与条件分布/均值正确,校准、过度离散、边际效应,statsmodels; glm,系数需转成概率/发生率含义
+STAT-04,面板,双向固定效应,y_{it}=\beta x_{it}+\alpha_i+\lambda_t+\varepsilon_{it},控制个体与共同时间冲击,α_i个体效应；λ_t时间效应,组内外生；有足够组内变化,聚类误差、序列相关、趋势,linearmodels; fixest,它本身不是因果识别策略
+STAT-05,生存分析,Cox 比例风险,h(t|x)=h_0(t)\exp(x'\beta),事件发生时间与删失,h_0基准风险；expβ风险比,比例风险；删失机制合理,Schoenfeld残差、竞争风险,lifelines; R survival,风险比不是发生概率比
+STAT-06,测量模型,SEM 测量与结构方程,"x=\Lambda_x\xi+\delta,\quad y=\Lambda_y\eta+\epsilon,\quad \eta=B\eta+\Gamma\xi+\zeta",潜变量与结构路径,Λ载荷；ξ外生潜变量；η内生潜变量,可识别、测量有效、样本适配,CFI/TLI/RMSEA、CR/AVE、区分效度,lavaan; Mplus,拟合优不代表理论真
+CAUS-01,因果,ATE/ATT,"ATE=E[Y(1)-Y(0)],\quad ATT=E[Y(1)-Y(0)|D=1]",定义平均处理效应目标量,Y(d)潜在结果；D处理,一致性、可识别条件取决于设计,重叠、平衡、敏感性,EconML/DoubleML,先定义 estimand 再选估计器
+CAUS-02,因果,双重差分,"\hat\tau_{DID}=(\bar Y_{T,post}-\bar Y_{T,pre})-(\bar Y_{C,post}-\bar Y_{C,pre})",处理/对照的政策冲击,T/C组；pre/post时期,平行趋势、无提前、无溢出,预趋势与placebo,did/fixest/csdid,分期处理需现代异质处理估计器
+CAUS-03,因果,事件研究,y_{it}=\alpha_i+\lambda_t+\sum_{k\ne-1}\beta_k1[t-G_i=k]+\varepsilon_{it},展示处理前后动态效应,G_i首次处理期；k相对时间,动态平行趋势；权重正确,处理前系数、组群异质,fixest; eventstudyinteract,传统TWFE事件研究可能有污染
+CAUS-04,因果,2SLS/IV,D_i=\pi Z_i+X_i'\gamma+u_i;\quad Y_i=\beta\hat D_i+X_i'\theta+\varepsilon_i,处理内生且有有效工具,Z工具；D内生处理,相关、排除、独立、单调,弱工具F、过识别、LATE,linearmodels; ivreg2,排除限制主要靠制度与机制论证
+CAUS-05,因果,RDD 局部跳跃,\tau=\lim_{x\downarrow c}E[Y|X=x]-\lim_{x\uparrow c}E[Y|X=x],阈值决定处理,X运行变量；c阈值,阈值附近连续且不可精确操纵,密度、协变量平衡、带宽,rdrobust,估计的是阈值附近局部效应
+CAUS-06,因果,合成控制,"\min_{w_j\ge0,\sum w_j=1}\|X_1-X_0w\|_V;\quad \hat\tau_t=Y_{1t}-\sum_jw_jY_{jt}",单一处理单位构造反事实,w供体权重；V预测变量权重,供体未处理；前期拟合；无溢出,RMSPE、置换、leave-one-out,Synth/augsynth,前期拟合差则后期差距不可解释
+CAUS-07,因果,逆概率加权,\hat\tau=\frac1n\sum_i\left[\frac{D_iY_i}{\hat e(X_i)}-\frac{(1-D_i)Y_i}{1-\hat e(X_i)}\right],可观测混杂下加权平衡,e(X)倾向得分,条件可忽略、重叠、一致性,极端权重、平衡、截尾,causalml; WeightIt,不能解决未观测混杂
+CAUS-08,因果ML,DML 正交得分,"\tilde Y=Y-\hat m(X),\;\tilde D=D-\hat g(X),\;\hat\theta=\frac{\sum\tilde D\tilde Y}{\sum\tilde D^2}",高维控制下的处理效应,m结果nuisance；g处理nuisance,交叉拟合、正交性、重叠,nuisance性能、敏感性、校准,DoubleML/EconML,预测强不自动意味着因果有效
+CAUS-09,机制,线性中介分解,"M=aD+X'\gamma+u,\quad Y=c'D+bM+X'\theta+\varepsilon,\quad indirect=ab",探索处理通过中介的路径,"a,b路径系数",顺序可忽略等强假设,bootstrap CI、替代顺序、敏感性,statsmodels; mediation,横截面中介通常难以支持因果机制
+EXP-01,实验,随机实验差均值,\hat\tau=\bar Y_1-\bar Y_0,随机分配两组的ITT,Y_1/Y_0为处理/对照观测均值,随机化、SUTVA、流失可忽略/处理,平衡、随机化推断、聚类设计,statsmodels; DeclareDesign,按随机化单元计算标准误
+EXP-02,实验,两组均值近似样本量,n_{per\ group}\approx\frac{2(z_{1-\alpha/2}+z_{1-\beta})^2\sigma^2}{\Delta^2},规划检测最小效应,Δ最小效应；σ标准差；1-β功效,独立、近似正态；复杂设计需修正,ICC、流失、多重检验,statsmodels; G*Power,不要用事后功效替代置信区间
+META-01,元分析,随机效应元分析,"\hat\mu=\frac{\sum_i w_i y_i}{\sum_i w_i},\quad w_i=\frac{1}{s_i^2+\tau^2}",跨研究综合效应,y_i效应；s_i标准误；τ²异质性,效应可比；研究独立或已建模,I²、τ²、漏斗图、影响诊断,metafor,高异质时总体均值可能掩盖机制
+DSR-01,设计科学,效用增益/基线差,\Delta U=U(artifact)-U(baseline),评估人工制品相对基线的价值,U可为正确率、时间、成本、采用等,指标与设计目标一致；评估样本适当,消融、多场景、用户与技术指标,实验框架,必须同时报告失败条件与设计边界
+OPT-01,优化,线性规划,"\min_x c'x\quad s.t.\quad Ax\le b,\;x\ge0",连续资源配置,"x决策；c成本；A,b约束",线性、参数已知,可行性、对偶、敏感性,Pyomo/CVXPY/HiGHS,单位与方向错误比求解器错误更常见
+OPT-02,优化,混合整数规划,"\min_{x,y} c'x+f'y\quad s.t.\quad Ax+By\le b,\;x\ge0,\;y\in\{0,1\}^m",开关、指派、选址与调度,y二元决策,线性且整数语义正确,MIP gap、节点、松弛、big-M,Gurobi/CPLEX/OR-Tools,big-M 过大导致数值与松弛问题
+OPT-03,不确定优化,两阶段随机规划,"\min_x c'x+E_\xi[Q(x,\xi)],\quad Q=\min_y\{q(\xi)'y:W(\xi)y\ge h(\xi)-T(\xi)x\}",先决策后观察不确定性,x一阶段；y补救；ξ场景,场景代表未来；可补救,VSS、EVPI、样本外成本,Pyomo/PySP,场景生成与概率比求解更关键
+OPT-04,不确定优化,鲁棒优化,"\min_x\max_{\xi\in\mathcal U} f(x,\xi)\quad s.t.\quad g(x,\xi)\le0,\;\forall\xi\in\mathcal U",最坏情形可控,U不确定集合,集合覆盖合理风险,价格鲁棒性、样本外压力,CVXPY/RSOME,集合过大会过度保守
+OPT-05,不确定优化,机会约束,"\Pr_\xi(g(x,\xi)\le0)\ge1-\alpha",允许小概率违约,α风险容忍,分布/样本近似可信,样本外违约率、置信界,CVXPY/Pyomo,名义α不等于真实样本外违约率
+OPT-06,网络优化,最小费用流,"\min\sum_{(i,j)}c_{ij}x_{ij}\;s.t.\;\sum_jx_{ij}-\sum_jx_{ji}=b_i,\;0\le x_{ij}\le u_{ij}",运输、分配与网络流,b_i供需；u容量,流守恒与网络定义正确,可行、瓶颈、对偶价格,OR-Tools/NetworkX,节点口径和方向最易出错
+OPT-07,选址,容量设施选址,"\min\sum_j f_jy_j+\sum_{i,j}c_{ij}x_{ij}\;s.t.\;\sum_jx_{ij}=d_i,\;\sum_ix_{ij}\le K_jy_j",仓库、站点、医院与充电设施,y开站；x分配；K容量,需求与成本空间化正确,容量、覆盖、公平、敏感性,Pyomo/Gurobi,只最小化成本会忽略服务与公平
+OPT-08,路径,容量车辆路径,"\min\sum_{i,j}c_{ij}x_{ij}\quad s.t.\;\text{visit once, flow balance, capacity, subtour elimination}",配送、取送与移动服务,x_{ij}是否走边,图、需求、车队与时间窗正确,可行率、gap、运行时、业务KPI,OR-Tools/PyVRP,必须显式防子回路并验证路线可执行
+OPT-09,库存,报童临界分位,F(q^*)=\frac{C_u}{C_u+C_o},单期不确定需求订货,C_u缺货成本；C_o过量成本,需求分布与边际成本稳定,服务水平、分布误差、敏感性,scipy,成本口径决定分位点，需与业务核对
+OPT-10,库存,"(s,S)策略","q_t=\begin{cases}S-I_t,&I_t\le s\\0,&I_t>s\end{cases}",有固定订货成本的补货,I库存位置；s触发点；S目标,状态可观测；需求/提前期模型可用,缺货、服务、成本、漂移,仿真/Pyomo,策略参数需滚动更新与样本外验证
+STO-01,排队,Little 定律,L=\lambda W,稳态系统中人数、流率与时间关系,L平均在制；λ吞吐；W平均时间,稳定、流守恒、长期平均,单位一致、边界一致,SimPy/手算,不能单独给出等待时间分布
+STO-02,排队,M/M/1,"\rho=\lambda/\mu<1,\quad W=\frac{1}{\mu-\lambda},\quad L=\frac{\lambda}{\mu-\lambda}",指数到达服务的单服务台基准,λ到达率；μ服务率,Poisson到达、指数服务、FCFS、稳态,分布拟合、ρ、尾部等待,queueing-tool/SimPy,真实服务时间重尾时会严重低估等待
+STO-03,随机过程,马尔可夫链稳态,"\pi=\pi P,\quad \sum_i\pi_i=1",长期状态占比与转移,P转移矩阵；π稳态,齐次、不可约/遍历等,转移稳定、状态定义、收敛,numpy/scipy,状态聚合不当会破坏马尔可夫性
+STO-04,动态决策,Bellman 最优方程,"V^*(s)=\max_a\{r(s,a)+\gamma E[V^*(s')|s,a]\}",MDP的最优价值与策略,s状态；a动作；γ折扣,近似马尔可夫；模型/数据覆盖,Bellman误差、策略价值、覆盖,MDPtoolbox/RLlib,奖励必须对应真实管理目标
+GAME-01,博弈,Nash 均衡,"u_i(a_i^*,a_{-i}^*)\ge u_i(a_i,a_{-i}^*),\;\forall i,a_i",同时战略互动,u_i效用；a_i行动,参与者与信息结构明确,存在、唯一、多均衡选择,SymPy/Mathematica,均衡是模型内结论，不自动是行为预测
+GAME-02,博弈,Stackelberg 领导者问题,"\max_{a_L}u_L(a_L,a_F^*(a_L)),\quad a_F^*(a_L)\in\arg\max_{a_F}u_F(a_L,a_F)",先行者与跟随者,L领导者；F跟随者,时序与承诺可信,反应函数、边界解、多均衡,bilevel/Pyomo,错误时序会改变全部结论
+GAME-03,契约,参与约束与激励相容,"EU_A(a^*,w)\ge\bar U,\quad a^*\in\arg\max_a EU_A(a,w)",设计工资、分成、平台或供应链契约,A代理人；w契约；U保留效用,信息结构与可执行契约明确,IR/IC、福利、风险分担,符号/数值优化,不要忽略有限责任与执行成本
+DEMAND-01,选择,多项Logit,P_{ij}=\frac{\exp(V_{ij})}{\sum_{k\in C_i}\exp(V_{ik})},多选一的偏好与需求,V系统效用；C选择集,IID极值误差导致IIA,IIA、选择集、弹性、价格内生,Biogeme/pylogit,替代关系过强时用nested/mixed logit
+TIME-01,时序,ARIMA,\phi(B)(1-B)^d y_t=c+\theta(B)\varepsilon_t,单变量时序预测,B滞后算子；d差分阶数,差分后平稳；残差白噪声,ADF/KPSS、ACF、滚动回测,statsmodels/fable,不得随机切分训练测试
+TIME-02,时序,VAR,y_t=c+A_1y_{t-1}+\cdots+A_py_{t-p}+\varepsilon_t,多变量动态、冲击与预测,A_l滞后系数矩阵,平稳或协整处理；滞后充分,稳定性、残差、IRF识别,statsmodels/vars,IRF的因果解释依赖识别假设
+ML-01,机器学习,经验风险最小化,"\hat f=\arg\min_{f\in\mathcal F}\frac1n\sum_i\ell(y_i,f(x_i))+\lambda\Omega(f)",监督学习通用目标,ℓ损失；Ω正则；λ强度,训练与部署分布可比,CV、学习曲线、校准、漂移,scikit-learn/PyTorch,测试集只用于最终一次评估
+ML-02,机器学习,交叉熵,\mathcal L=-\sum_i\sum_k y_{ik}\log p_{ik},多分类概率学习,y one-hot；p预测概率,标签和样本权重合理,校准、类不平衡、ECE,PyTorch/sklearn,高准确率可能掩盖概率失准
+ML-03,深度学习,LSTM 状态更新,"f_t=\sigma(W_f[x_t,h_{t-1}]+b_f),\;c_t=f_t\odot c_{t-1}+i_t\odot\tilde c_t",序列与长依赖,f遗忘门；c记忆；h隐状态,序列切分无泄漏；数据量足够,基线、消融、滚动回测,PyTorch/Keras,先与简单时序和树模型比较
+ML-04,深度学习,缩放点积注意力,"Attention(Q,K,V)=softmax(QK'/\sqrt{d_k})V",文本、多变量时序与关系表示,Q查询；K键；V值,位置/掩码和切分正确,消融、归因稳定、长度外推,transformers/PyTorch,注意力权重不等同因果解释
+ML-05,强化学习,Q-learning,"Q(s,a)\leftarrow Q(s,a)+\alpha[r+\gamma\max_{a'}Q(s',a')-Q(s,a)]",未知转移下学习控制策略,α学习率；γ折扣,探索覆盖；近似马尔可夫,离线价值、覆盖、收敛,Gymnasium/SB3,离线数据分布外动作会造成过估计
+NET-01,网络,PageRank/特征向量中心性,r=\alpha P'r+(1-\alpha)v,识别网络中的结构性重要节点,P转移；v跳转；α阻尼,边方向/权重定义合理,替代边、随机网络、稳定性,NetworkX/igraph,中心性是结构指标，不是因果影响
+BAYES-01,贝叶斯,Bayes 后验,p(\theta|y)=\frac{p(y|\theta)p(\theta)}{p(y)}\propto p(y|\theta)p(\theta),合并先验与数据并量化不确定性,θ参数；y数据,生成模型与先验可辩护,R-hat、ESS、PPC、先验敏感,PyMC/Stan,后验可信度不修复错误的似然或数据
+EFF-01,效率分析,DEA 输入导向CCR,"\min_{\theta,\lambda}\theta\;s.t.\;Y\lambda\ge y_o,\;X\lambda\le\theta x_o,\;\lambda\ge0",多投入多产出相对效率,DMU o；θ效率；λ参照组合,同质DMU；投入产出口径可比；CRS,规模报酬、异常点、权重敏感,pyDEA/R Benchmarking,相对前沿受样本和异常点强影响
