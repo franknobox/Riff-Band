@@ -37,6 +37,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       env: {
         AI4MS_API_INTERNAL_URL: "http://127.0.0.1:8010",
+        NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:8010/api/v1",
       },
     },
   ],

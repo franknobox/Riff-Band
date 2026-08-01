@@ -47,6 +47,7 @@ COMMON_SYSTEM_PROMPT = """你是 AI4MS 管理科学科研工作台中的阶段�
 8. 不声称调用过未实际返回结果的工具。工具失败、为空、超时或权限不足时，保留失败状态与覆盖限制，不猜测结果。
 9. reasoning_trace 是面向研究者的简洁“可审计研究理由”，不是私密 token 级思维过程。每一步必须给出可核验 evidence_refs、推断类型、结论、置信度和可推翻条件；不得输出隐藏草稿、心理独白或无证据的长篇推演。
 10. human_decisions 和 next_verifications 均至少给出一项；所有关键选题、设计、运行、接受风险、审批和发布决定由人类完成。
+11. 服务端会把本草稿封装为统一 ai4ms.ai-report.v1：执行摘要、可审计研究理由、资产/证据链接、局限、待核验项、人工控制与生成血缘。不得试图伪造或覆盖该服务端权威封装。
 """
 
 
@@ -95,24 +96,24 @@ class PromptCatalog:
     _prompts = {
         "problem": StagePrompt(
             prompt_id="ai4ms.stage.problem",
-            version="2.0.0",
+            version="2.1.0",
             stage_key="problem",
             contract=ProblemDraft,
-            task_instruction="""把原始研究想法整理为 S0 问题识别草稿。识别研究对象、分析单位、时空边界、研究目标、核心概念与中英文/相邻术语。提出 1-5 个可证伪或可求解的问题。候选空白只能标记为待检索假设，并为每项给出可能推翻它的反向检索。""",
+            task_instruction="""把原始研究想法整理为 S0 问题识别草稿。先区分现实管理现象、管理决策问题、科学问题与预期贡献，识别研究对象、利益相关者、分析单位/决策单位、时空边界和中英文相邻术语。并列生成至少 2 个 materially distinct 的 question_candidates，逐项说明问题类型、管理决策、分析单位、候选贡献、数据需求、可行性和可推翻条件；不得替研究者选择。对清晰度、管理/理论相关性、创新候选、数据可得性、伦理与层级匹配形成 problem_diagnostics，并列出选择取舍。candidate gap 只能是待检索假设，每项必须带反向检索；不得使用“首次、完全空白、无人研究”等结论。""",
         ),
         "literature": StagePrompt(
             prompt_id="ai4ms.stage.literature-plan",
-            version="2.0.0",
+            version="2.1.0",
             stage_key="literature",
             contract=LiteraturePlanDraft,
-            task_instruction="""基于已批准或当前 S0 内容生成 S1 文献检索计划，不生成论文、引文、研究流派或综合结论。检索计划必须覆盖经典基础、近年进展、相邻术语、争议/反证和候选空白反向复核；给出可直接交给 OpenAlex、Crossref、Semantic Scholar 和 arXiv 的中英文查询块、纳排标准、筛选问题和覆盖限制。""",
+            task_instruction="""基于已批准或当前 S0 内容生成 S1 文献检索计划，不生成论文、引文、研究流派或综合结论。检索计划必须覆盖经典基础、近年进展、相邻术语、争议/反证和候选空白反向复核；给出可直接交给 OpenAlex、Crossref、Semantic Scholar 和 arXiv 的中英文查询块、纳排标准、逐篇筛选问题和覆盖限制。模型生成的 query plan 只能作为待审草稿，必须由研究者批准当前 plan fingerprint 后才能自动执行；不得自行声称已检索。""",
         ),
         "literature_synthesis": StagePrompt(
             prompt_id="ai4ms.stage.literature-synthesis",
-            version="2.0.0",
+            version="2.1.0",
             stage_key="literature",
             contract=LiteratureSynthesisDraft,
-            task_instruction="""只基于上下文中已保存的论文元数据和 paper_id，形成研究流派、共识/争议/未知、候选空白及下一步。所有 supporting/opposing paper_id 必须来自输入。摘要缺失或来源覆盖有限时降低证据状态并写入 coverage_limits；不得补造论文、DOI、研究发现或绝对原创结论。""",
+            task_instruction="""只基于上下文中未被人工排除的论文与 paper_id，按“逐篇证据卡→研究流派→流派内深度比较→跨流派综合→综述大纲”生成 S1 草稿。每篇输入论文必须有且只有一个 paper_evidence_card；元数据级只能描述书目信息，摘要级不得声称阅读全文，只有输入标记 full_text 才能使用全文证据。每个发现须给 evidence_basis 和可核验 locator，未报告字段进入 unknowns。按理论、研究设计、样本/情境、数据、方法、主要发现、局限与贡献综合；形成 method_comparisons、支持/反对对称的 contradictions，以及按主题/方法/争议组织而非逐篇罗列的 review_outline。所有 paper_id 必须来自输入；摘要缺失或覆盖有限时降低证据状态并写入 coverage_limits。不得补造论文、DOI、数值、研究发现或绝对原创结论，也不得用行业常识填补缺失证据。""",
         ),
         "theory": StagePrompt(
             prompt_id="ai4ms.stage.theory",
@@ -161,20 +162,25 @@ class PromptCatalog:
             version="2.0.0",
             stage_key="evidence",
             contract=ClaimEvidenceDraft,
-            task_instruction="""基于 S1 论文、S6 不可变 Run 记录和 S7 稳健性矩阵生成 S8 Claim-Evidence 草稿。每条主张必须包含至少一个输入 evidence_artifacts 中的 artifact_id，并明确方向、强度、作用域、假设和不确定性。论文、run_id、method_id、机制和稳健性检查只能引用输入中的 ID。没有结构化结果的 blocked/failed Run 只能作为 reviewer_note 且只能限定主张，不得支持实证结论。稳健性失败、阻塞或不确定必须降低置信度并进入限制；不得输出审批状态。""",
+            task_instruction="""基于 S1 中经人工批准的 evidence_library 记录、S6 不可变 Run 记录和 S7 稳健性矩阵生成 S8 Claim-Evidence 草稿。每条主张必须包含至少一个输入 evidence_artifacts 中的 artifact_id；文献或数据研究只能使用 EVLIB_* 权威证据 ID，不能使用待审搜索候选，并明确方向、强度、作用域、假设和不确定性。论文、run_id、method_id、机制和稳健性检查只能引用输入中的 ID。没有结构化结果的 blocked/failed Run 只能作为 reviewer_note 且只能限定主张，不得支持实证结论。稳健性失败、阻塞或不确定必须降低置信度并进入限制；不得输出审批状态。""",
         ),
         "delivery": StagePrompt(
             prompt_id="ai4ms.stage.delivery",
-            version="2.0.0",
+            version="2.3.0",
             stage_key="delivery",
             contract=DeliveryDraft,
-            task_instruction="""只基于 G4 已批准的 S8 主张与证据生成 S9 写作和交付草稿。每条核心结论必须引用输入中的 claim_id 和这些主张实际包含的 evidence_id；不得使用 refuted/withdrawn 主张，不得新增数值、论文或证据。政策含义必须写清适用对象、条件和风险。reference_paper_ids 只能来自输入论文。HTML 报告、manifest、引用元数据和研究 ZIP 包由服务端确定性生成，不得编造路径或发布状态。""",
+            task_instruction="""只基于 G4 已批准的 S8 主张/证据和 S1 已经人工批准进入 evidence_library 的论文与数据研究生成 S9 可人工编辑的学术正文。先声明 document_profile（文档类型、管理科学研究范式、受众、语言、引用规范以及共同方法偏差是否适用），再形成 abstract、keywords、outline、与 outline 一一对应的 manuscript_sections，以及“研究问题→方法/设计→获批主张→结论”的 logic_closure。每节正文用 [paper:paper_id]、[claim:claim_id]、[evidence:evidence_id] 标出论述来源，并在本节清单中声明同一 ID；其中论文引用必须同时声明 citation_paper_ids 与对应的 citation_evidence_ids，数据研究则直接在 citation_evidence_ids 中声明其 EVLIB_*。reference_evidence_ids 是论文与数据研究的权威参考清单；每个 reference_paper_id 必须映射到其中对应的论文证据记录，数据研究无需伪造 paper_id。不得引用 pending、rejected、changes_requested 或 archived 证据。不得使用 refuted/withdrawn 主张，不得新增数值、论文、数据来源、证据或未运行结果。文献综述必须综合与批判而非逐篇罗列；结果、讨论和结论各司其职，结论不得引入新事实。对因果、预测、优化、质性、仿真和理论研究使用各自适用的表达，不机械套用问卷、SEM、中介/调节或 Harman 检验。author_self_review 按结构、逻辑闭环、变量/数据一致性、引用双向对应、学术表达、格式与披露区分 must_fix、should_improve、note；不得以规避 AI 检测为目标。政策含义必须写清对象、条件和风险。HTML、书目、质量报告、manifest 和研究 ZIP 包由服务端确定性生成，不得编造路径或发布状态。""",
         ),
     }
 
     @classmethod
     def get(cls, stage_key: str, context: dict[str, Any] | None = None) -> StagePrompt | None:
-        if stage_key == "literature" and (context or {}).get("current_stage_content", {}).get("papers"):
+        if (
+            stage_key == "literature"
+            and (context or {})
+            .get("current_stage_content", {})
+            .get("evidence_library")
+        ):
             return cls._prompts["literature_synthesis"]
         return cls._prompts.get(stage_key)
 
@@ -192,6 +198,13 @@ class PromptCatalog:
                 "kind": "auditable_rationale",
                 "private_chain_of_thought": False,
                 "required_for_model_generation": True,
+            },
+            "ai_report": {
+                "schema_version": "ai4ms.ai-report.v1",
+                "paradigm": "evidence_linked_management_science",
+                "server_generated": True,
+                "human_review_required": True,
+                "editable": True,
             },
             "risk_levels": policies["risk_levels"],
             "items": [

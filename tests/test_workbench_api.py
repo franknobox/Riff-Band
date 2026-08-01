@@ -38,7 +38,13 @@ class _FakeLiteratureSearch:
             "queries": ["AI adoption"],
             "backends": list(request.backends),
             "counts": {"identified": 2, "deduplicated": 1},
-            "papers": [{"paper_id": "paper_a", "title": "Paper A"}],
+            "papers": [
+                {
+                    "paper_id": "paper_a",
+                    "title": "Paper A",
+                    "url": "https://example.org/paper-a",
+                }
+            ],
             "source_runs": [{"backend": "openalex", "success": True, "record_count": 1}],
             "snapshot_path": "artifacts/literature/search_api_test.json",
         }
@@ -160,7 +166,7 @@ def _valid_evidence_content() -> dict:
                 "status": "supported",
                 "confidence": "medium",
                 "scope": {"population_or_system": "企业", "time": "论文覆盖期", "geography": "论文覆盖地区", "boundary_conditions": ["仅为文献综合"]},
-                "evidence": [{"evidence_id": "EV1", "evidence_type": "paper", "artifact_id": "paper_a", "locator": "title and metadata", "direction": "supports", "strength": "moderate"}],
+                "evidence": [{"evidence_id": "EV1", "evidence_type": "paper", "artifact_id": "EVLIB_A", "locator": "title and metadata", "direction": "supports", "strength": "moderate"}],
                 "assumptions": [],
                 "counterevidence": [],
                 "uncertainty_note": "尚无本地模型结果，不能作因果判断。",
@@ -189,7 +195,8 @@ def _valid_delivery_content() -> dict:
         ],
         "approved_claims": ["C1"],
         "reference_paper_ids": ["paper_a"],
-        "references": [{"paper_id": "paper_a", "title": "Paper A", "authors": ["Li"]}],
+        "reference_evidence_ids": ["EVLIB_A"],
+        "references": [{"paper_id": "paper_a", "evidence_id": "EVLIB_A", "title": "Paper A", "authors": ["Li"]}],
         "limitations": ["没有本地模型结果。"],
         "reproducibility_notes": ["结论保留 claim_id 和 evidence_id。"],
         "disclosure": "报告为 AI 辅助草稿，最终内容由研究者审批。",
@@ -230,7 +237,24 @@ def _valid_gate_content(project: dict, stage_key: str) -> dict:
             "exclusion_criteria": ["没有可追溯元数据"],
             "screening_questions": ["研究对象和结论边界是否明确？"],
             "counter_searches": ["AI adoption innovation contradictory evidence"],
-            "papers": [{"paper_id": "paper_a", "title": "Paper A", "authors": ["Li"], "year": 2025}],
+            "papers": [{"paper_id": "paper_a", "title": "Paper A", "authors": ["Li"], "year": 2025, "url": "https://example.org/paper-a"}],
+            "evidence_library": [
+                {
+                    "evidence_id": "EVLIB_A",
+                    "source_candidate_id": "EC_A",
+                    "evidence_type": "paper",
+                    "status": "active",
+                    "revision": 1,
+                    "paper_id": "paper_a",
+                    "title": "Paper A",
+                    "authors": ["Li"],
+                    "year": 2025,
+                    "url": "https://example.org/paper-a",
+                    "evidence_level": "metadata",
+                    "content_hash": "a" * 64,
+                    "approved_by": "human",
+                }
+            ],
             "search_runs": [{"search_id": "search_fixture", "status": "complete"}],
             "research_streams": [{"stream_id": "stream_core", "name": "核心关系", "description": "讨论企业 AI 采用与创新结果的研究。", "paper_ids": ["paper_a"], "naming_evidence": "当前论文题名和元数据。"}],
             "syntheses": [{"statement": "当前论文元数据提示该关系值得进一步验证。", "status": "limited", "supporting_paper_ids": ["paper_a"], "opposing_paper_ids": [], "qualifiers": ["仅有元数据"]}],
@@ -585,13 +609,24 @@ def test_literature_search_endpoint_saves_papers_and_run_metadata(tmp_path):
     project = _create_project(client)
     project_id = project["project_id"]
     _approve(client, project_id, "problem")
-    client.put(
+    planned = client.put(
         f"/api/v1/projects/{project_id}/stages/literature",
         json={
             "content": {"query_blocks": [{"query_en": "AI adoption"}]},
             "change_reason": "search plan",
         },
+    ).json()
+    literature_revision = planned["stages"][1]["revision"]
+    reviewed = client.post(
+        f"/api/v1/projects/{project_id}/stages/literature/plan-review",
+        json={
+            "decision": "approve",
+            "reason": "Query scope reviewed by the researcher",
+            "expected_revision": literature_revision,
+            "actor_type": "human",
+        },
     )
+    assert reviewed.status_code == 200
 
     response = client.post(
         f"/api/v1/projects/{project_id}/stages/literature/search",
@@ -809,7 +844,24 @@ def test_complete_s0_to_s9_flow(tmp_path):
             assert drafted.json()["stages"][index]["revision"] == 1
         if stage_key == "literature":
             current = client.get(f"/api/v1/projects/{project_id}/stages/literature").json()["content"]
-            current["papers"] = [{"paper_id": "paper_a", "title": "Paper A", "authors": ["Li"], "year": 2025}]
+            current["papers"] = [{"paper_id": "paper_a", "title": "Paper A", "authors": ["Li"], "year": 2025, "url": "https://example.org/paper-a"}]
+            current["evidence_library"] = [
+                {
+                    "evidence_id": "EVLIB_A",
+                    "source_candidate_id": "EC_A",
+                    "evidence_type": "paper",
+                    "status": "active",
+                    "revision": 1,
+                    "paper_id": "paper_a",
+                    "title": "Paper A",
+                    "authors": ["Li"],
+                    "year": 2025,
+                    "url": "https://example.org/paper-a",
+                    "evidence_level": "metadata",
+                    "content_hash": "a" * 64,
+                    "approved_by": "human",
+                }
+            ]
             saved = client.put(
                 f"/api/v1/projects/{project_id}/stages/literature",
                 json={"content": current, "change_reason": "Add traceable paper"},

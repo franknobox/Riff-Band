@@ -20,7 +20,7 @@ export type DeepRoute =
   | { kind: "stage-decisions"; stageIndex: number }
   | { kind: "project-wizard"; projectId?: string }
   | { kind: "project-overview"; projectId: string }
-  | { kind: "evidence-record"; title: string }
+  | { kind: "evidence-record"; evidenceId: string }
   | { kind: "method-record"; methodId: string }
   | { kind: "formula-record"; formulaId: string }
   | { kind: "approval-gate"; gateId: string }
@@ -75,6 +75,9 @@ export type CheckIssue = {
 
 export type EvidenceRecord = {
   id: string;
+  evidenceType?: "paper" | "data_study";
+  revision?: number;
+  contentHash?: string;
   title: string;
   authors: string;
   year: number;
@@ -85,6 +88,14 @@ export type EvidenceRecord = {
   venue?: string;
   doi?: string;
   sourceUrl?: string;
+  summary?: string;
+  locator?: string;
+  accessNotes?: string;
+  approvedAt?: string;
+  screeningDecision?: "include" | "exclude" | "unsure";
+  screeningReason?: string;
+  evidenceLevel?: "metadata" | "abstract" | "full_text" | "source_page";
+  fullTextAvailable?: boolean;
 };
 
 export type MethodRecord = {
@@ -543,27 +554,51 @@ export function ProjectOverviewPage({ project, onBack, onStart, onEdit, onNew }:
   return <div className="deep-page project-overview-page"><DeepHeader level="L2 · 项目中心" eyebrow="Research project overview" title={project.name} description="项目级信息、研究流程、阶段状态与协作角色的统一入口。" trail={["所有项目"]} onBack={onBack} actions={<><button onClick={onEdit}>编辑项目设置</button><button className="primary-action" onClick={onStart}>进入 {`S${project.stageIndex}`} 工作区</button></>} /><section className="project-overview-hero"><div className="project-big-icon">{project.icon}</div><div><span>{project.code || "RESEARCH PROJECT"}</span><h2>{project.question}</h2><p>{project.objective}</p></div><aside><strong>{project.stageIndex + 1}<small>/ 10</small></strong><span>当前阶段</span></aside></section><div className="project-overview-grid"><section className="project-flow-card"><div className="section-heading"><div><p className="eyebrow">Research journey</p><h2>S0–S9 研究流程</h2></div><button onClick={onStart}>继续当前阶段 →</button></div><div className="mini-stage-path">{Array.from({ length: 10 }, (_, index) => <div className={`${index < project.stageIndex ? "is-done" : ""} ${index === project.stageIndex ? "is-active" : ""}`} key={index}><span>{index < project.stageIndex ? "✓" : index}</span><small>S{index}</small></div>)}</div><div className="next-project-tasks"><article><span>01</span><div><strong>完善当前阶段草稿</strong><small>人工编辑并保存版本化资产</small></div></article><article><span>02</span><div><strong>运行一致性检查</strong><small>整改阻塞项并再次复检</small></div></article><article><span>03</span><div><strong>提交人工审批</strong><small>AI 无法代替指定角色批准</small></div></article></div></section><aside className="project-meta-card"><p className="eyebrow">Project profile</p><h2>项目资料</h2><dl><div><dt>学科方向</dt><dd>{project.discipline}</dd></div><div><dt>样本窗口</dt><dd>{project.sampleWindow || "待确认"}</dd></div><div><dt>负责人</dt><dd>{project.owner}</dd></div><div><dt>会签角色</dt><dd>{project.reviewers}</dd></div><div><dt>创建时间</dt><dd>{project.createdAt}</dd></div></dl><h3>计划数据来源</h3><div className="project-source-tags">{project.dataSources.length ? project.dataSources.map((item) => <span key={item}>{item}</span>) : <span>待 S0–S4 补充</span>}</div></aside></div><footer className="project-center-footer"><div><strong>需要启动另一个独立课题？</strong><p>新项目拥有独立的数据、草稿、审批和运行记录。</p></div><button onClick={onNew}>＋ 创建另一个项目</button></footer></div>;
 }
 
-export function EvidenceRecordPage({ record, onBack, onSave }: { record: EvidenceRecord; onBack: () => void; onSave: (message: string) => void }) {
+export function EvidenceRecordPage({
+  record,
+  busy,
+  onBack,
+  onSave,
+}: {
+  record: EvidenceRecord;
+  busy: boolean;
+  onBack: () => void;
+  onSave: (
+    edits: Record<string, unknown>,
+    reason: string,
+  ) => Promise<void>;
+}) {
   const [tab, setTab] = useState(0);
-  const [claim, setClaim] = useState("");
-  const [sample, setSample] = useState("");
-  const [limits, setLimits] = useState("");
+  const [summary, setSummary] = useState(record.summary ?? "");
+  const [abstract, setAbstract] = useState(record.abstract ?? "");
+  const [locator, setLocator] = useState(record.locator ?? "");
+  const [accessNotes, setAccessNotes] = useState(record.accessNotes ?? "");
+  const [saveReason, setSaveReason] = useState("人工核对并补充证据卡字段");
   const [selectedClaim, setSelectedClaim] = useState<number | null>(null);
   const [connectionTypes, setConnectionTypes] = useState<Record<number, string>>({});
   const [connectionNotes, setConnectionNotes] = useState<Record<number, string>>({});
   const claimLinks: readonly { id: string; title: string; strength: string; location: string; locator: string; excerpt: string }[] = [];
   const activeClaim = selectedClaim === null ? null : claimLinks[selectedClaim];
+  const saveRecord = () => onSave(
+    {
+      abstract,
+      summary,
+      locator,
+      access_notes: accessNotes,
+    },
+    saveReason.trim(),
+  );
 
   return (
     <div className="deep-page evidence-record-page">
       <DeepHeader
-        level="L3 · 论文证据卡"
-        eyebrow={record.status + " · " + record.year}
+        level="L3 · 权威证据卡"
+        eyebrow={`${record.id} · Revision ${record.revision ?? 1}`}
         title={record.title}
-        description={record.authors + " · " + record.stream + " · " + record.method}
+        description={`${record.authors || "作者 / 机构待补充"} · ${record.stream} · ${record.evidenceType === "data_study" ? "数据研究" : "学术文献"}`}
         trail={["证据库"]}
         onBack={onBack}
-        actions={<><span className="source-level verified">{record.status}</span><button className="primary-action" onClick={() => onSave("论文卡修改已保留在当前页面；请在 S1 阶段资产中保存正式 revision")}>暂存编辑</button></>}
+        actions={<><span className="source-level verified">{record.status}</span><button className="primary-action" disabled={busy || saveReason.trim().length < 3} onClick={() => void saveRecord()}>{busy ? "保存中…" : "保存为新 Revision"}</button></>}
       />
       <div className="record-layout">
         <section className="record-main">
@@ -571,10 +606,11 @@ export function EvidenceRecordPage({ record, onBack, onSave }: { record: Evidenc
           <div className="record-body">
             {tab === 0 && (
               <div className="field-stack">
-                {record.abstract && <div className="claim-source-fragment"><span>检索接口返回的摘要</span><p>{record.abstract}</p></div>}
-                <Field label="研究对象与样本"><textarea rows={5} value={sample} onChange={(event) => setSample(event.target.value)} /></Field>
-                <Field label="可用于当前课题的核心发现"><textarea rows={7} value={claim} onChange={(event) => setClaim(event.target.value)} /></Field>
-                <Field label="适用边界与限制"><textarea rows={6} value={limits} onChange={(event) => setLimits(event.target.value)} /></Field>
+                <Field label="人工核验摘要"><textarea rows={7} value={abstract} onChange={(event) => setAbstract(event.target.value)} /></Field>
+                <Field label="用于当前课题的证据概括"><textarea rows={7} value={summary} onChange={(event) => setSummary(event.target.value)} /></Field>
+                <Field label="原文定位 / 数据表定位"><textarea rows={4} value={locator} onChange={(event) => setLocator(event.target.value)} placeholder="例如：Section 4.2, Table 3；或数据门户表名与筛选条件" /></Field>
+                <Field label="访问、许可与外推限制"><textarea rows={5} value={accessNotes} onChange={(event) => setAccessNotes(event.target.value)} /></Field>
+                <Field label="本次修改理由" hint="保存时写入审计轨迹"><textarea rows={3} value={saveReason} onChange={(event) => setSaveReason(event.target.value)} /></Field>
               </div>
             )}
             {tab === 1 && (
@@ -582,7 +618,7 @@ export function EvidenceRecordPage({ record, onBack, onSave }: { record: Evidenc
                 <article><span>研究问题</span><textarea defaultValue="" placeholder="从全文人工提取，不使用系统预置内容" /></article>
                 <article><span>识别与方法</span><textarea defaultValue={record.method} /></article>
                 <article><span>变量与测量</span><textarea defaultValue="" placeholder="从全文人工提取变量定义与测量方式" /></article>
-                <article><span>主要结论</span><textarea defaultValue={claim} /></article>
+                <article><span>主要结论</span><textarea defaultValue={summary} /></article>
               </div>
             )}
             {tab === 2 && (
@@ -611,7 +647,7 @@ export function EvidenceRecordPage({ record, onBack, onSave }: { record: Evidenc
                       <Field label="连接类型"><select value={connectionTypes[selectedClaim]} onChange={(event) => setConnectionTypes((current) => ({ ...current, [selectedClaim]: event.target.value }))}><option>支持</option><option>反驳</option><option>机制启发</option><option>背景</option><option>冲突</option></select></Field>
                       <Field label="强度与使用备注"><textarea rows={5} value={connectionNotes[selectedClaim]} onChange={(event) => setConnectionNotes((current) => ({ ...current, [selectedClaim]: event.target.value }))} /></Field>
                     </div>
-                    <footer><span>保存只更新工作草稿；核心主张仍需在 G4 由人工审核。</span><button className="primary-action" onClick={() => onSave(activeClaim.id + " 主张—证据连接已保存")}>保存连接</button></footer>
+                    <footer><span>连接必须写回 S8 阶段资产并通过 G4 人工审核。</span><button className="primary-action" onClick={() => void onSave({ summary: `${summary}\n${activeClaim.id}：${connectionNotes[selectedClaim] ?? ""}`.trim() }, `${activeClaim.id} 主张—证据连接人工更新`)}>保存连接</button></footer>
                   </section>
                 )}
               </>
@@ -621,8 +657,9 @@ export function EvidenceRecordPage({ record, onBack, onSave }: { record: Evidenc
         </section>
         <aside className="record-aside">
           <p className="eyebrow">Provenance</p><h2>来源与使用记录</h2>
-          <dl><div><dt>证据等级</dt><dd>{record.status}</dd></div><div><dt>进入课题</dt><dd>S1 文献检索</dd></div><div><dt>连接主张</dt><dd>0 条</dd></div><div><dt>DOI</dt><dd>{record.doi || "未返回"}</dd></div></dl>
-          <div className="record-warning"><strong>引用边界</strong><p>摘要级或待全文来源不能直接支持核心结论；必须保留原始来源和人工概括记录。</p></div>
+          <dl><div><dt>证据等级</dt><dd>{record.evidenceLevel ?? "metadata"}</dd></div><div><dt>权威 ID</dt><dd>{record.id}</dd></div><div><dt>内容哈希</dt><dd>{record.contentHash ? `${record.contentHash.slice(0, 12)}…` : "待生成"}</dd></div><div><dt>批准时间</dt><dd>{record.approvedAt ? new Date(record.approvedAt).toLocaleString("zh-CN") : "已由人工批准"}</dd></div><div><dt>DOI</dt><dd>{record.doi || "未返回"}</dd></div></dl>
+          {record.sourceUrl && <a className="primary-action evidence-source-link" href={record.sourceUrl} target="_blank" rel="noreferrer">打开原始来源 ↗</a>}
+          <div className="record-warning"><strong>引用边界</strong><p>论文正文只能引用当前权威 ID；摘要级来源不能直接支持核心因果结论，更新后仍需重新核对引用位置。</p></div>
         </aside>
       </div>
     </div>
@@ -669,8 +706,10 @@ export function FormulaRecordPage({ formula, onBack, onAdd, onSave }: { formula:
 
 export function ApprovalGatePage({ gate, onBack, onOpenAsset, onSubmit }: { gate: GateRecord; onBack: () => void; onOpenAsset: () => void; onSubmit: () => void }) {
   const locked = gate.status === "locked" || gate.status === "blocked";
-  const submitted = gate.status === "review";
-  const [freezeConfirmed, setFreezeConfirmed] = useState(gate.status === "approved" || submitted);
+  const submitted = gate.status === "submitted";
+  const [freezeConfirmed, setFreezeConfirmed] = useState(
+    gate.status === "approved" || gate.status === "review" || submitted,
+  );
   const completedCount = locked ? 1 : freezeConfirmed ? 4 : 3;
   const requirements = [
     "审批资产已形成可复核 revision",
@@ -772,7 +811,10 @@ export function AssetVersionPage({
     content: string,
   ) => Promise<void>;
 }) {
-  const editable = gate.status === "draft" && snapshot.revision > 0;
+  const editable = (
+    gate.status === "draft"
+    || gate.status === "review"
+  ) && snapshot.revision > 0;
   const [note, setNote] = useState(
     snapshot.sections.summary?.content
       || "本 revision 汇总阶段交付、证据覆盖、人工决定、风险与下游影响。请在提交前完成最终核对。",
@@ -812,9 +854,11 @@ export function AssetVersionPage({
     <div className="deep-page asset-version-page">
       <DeepHeader
         level="L4 · 版本资产"
-        eyebrow={gate.id + " · Frozen asset revision"}
+        eyebrow={`${gate.id} · ${editable ? "Editable working revision" : "Frozen asset revision"}`}
         title={gate.asset}
-        description="查看审批对象的确定版本、内容哈希、上游依赖和与上一版本的差异。"
+        description={editable
+          ? "在正式批准前继续人工修改审批资产；保存会形成新的 revision，并要求重新确认后再提交。"
+          : "查看审批对象的确定版本、内容哈希、上游依赖和与上一版本的差异。"}
         trail={["人工审批中心", gate.title]}
         onBack={onBack}
         actions={<><span className="hash-chip">SHA-256 · {snapshot.contentHash ? `${snapshot.contentHash.slice(0, 7)}…${snapshot.contentHash.slice(-4)}` : "尚未生成"}</span>{editable && <button className="primary-action" disabled={Boolean(saving)} onClick={() => void saveSection("summary", "版本说明", note)}>{saving === "summary" ? "保存中…" : "保存资产说明"}</button>}</>}

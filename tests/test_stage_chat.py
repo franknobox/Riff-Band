@@ -41,7 +41,10 @@ def test_stage_chat_calls_model_and_persists_history(tmp_path):
 
     response = client.post(
         f"/api/v1/projects/{project['project_id']}/stages/problem/chat",
-        json={"message": "这个问题的边界应该怎么收窄？"},
+        json={
+            "message": "这个问题的边界应该怎么收窄？",
+            "search_mode": "off",
+        },
     )
 
     assert response.status_code == 200

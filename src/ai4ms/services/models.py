@@ -203,6 +203,94 @@ class ConnectorToolRequest(BaseModel):
         return value.strip()
 
 
+class ProblemQuestionSelectionRequest(BaseModel):
+    selected_question_id: str = Field(pattern=r"^RQ[0-9_-]+$")
+    rationale: str = Field(min_length=3, max_length=2000)
+    expected_revision: int = Field(ge=1)
+    actor_type: str = Field(default="human", pattern="^human$")
+
+
+class LiteraturePlanReviewRequest(BaseModel):
+    decision: Literal["approve", "request_changes"]
+    reason: str = Field(min_length=3, max_length=2000)
+    expected_revision: int = Field(ge=1)
+    actor_type: str = Field(default="human", pattern="^human$")
+
+
+class LiteratureScreeningRequest(BaseModel):
+    decision: Literal["include", "exclude", "unsure"]
+    reason: str = Field(min_length=3, max_length=2000)
+    evidence_level: Literal["metadata", "abstract", "full_text"]
+    expected_revision: int = Field(ge=1)
+    actor_type: str = Field(default="human", pattern="^human$")
+
+
+class EvidenceDiscoveryRequest(BaseModel):
+    query: str = Field(min_length=3, max_length=2000)
+    candidate_type: Literal["literature", "data_study"]
+    expected_revision: int = Field(ge=0)
+    limit: int = Field(default=8, ge=1, le=15)
+    actor_type: str = Field(default="agent", pattern="^agent$")
+
+    @field_validator("query")
+    @classmethod
+    def clean_evidence_query(cls, value: str) -> str:
+        return " ".join(value.split())
+
+
+class EvidenceCandidateReviewRequest(BaseModel):
+    decision: Literal["approve", "reject", "request_changes"]
+    reason: str = Field(min_length=3, max_length=2000)
+    expected_revision: int = Field(ge=1)
+    evidence_level: Literal["metadata", "abstract", "full_text", "source_page"]
+    edits: dict[str, Any] = Field(default_factory=dict, max_length=30)
+    actor_type: str = Field(default="human", pattern="^human$")
+
+
+class EvidenceRecordPatchRequest(BaseModel):
+    edits: dict[str, Any] = Field(min_length=1, max_length=30)
+    reason: str = Field(min_length=3, max_length=2000)
+    expected_revision: int = Field(ge=1)
+    actor_type: str = Field(default="human", pattern="^human$")
+
+
+KnowledgeAssetKind = Literal["method", "formula"]
+
+
+class KnowledgeDiscoveryRequest(BaseModel):
+    kind: KnowledgeAssetKind
+    query: str = Field(min_length=3, max_length=2000)
+    limit: int = Field(default=6, ge=1, le=12)
+    actor_type: str = Field(default="agent", pattern="^agent$")
+
+    @field_validator("query")
+    @classmethod
+    def clean_knowledge_query(cls, value: str) -> str:
+        return " ".join(value.split())
+
+
+class KnowledgeCandidateReviewRequest(BaseModel):
+    decision: Literal["approve", "reject", "request_changes"]
+    reason: str = Field(min_length=3, max_length=2000)
+    expected_revision: int = Field(ge=1)
+    edits: dict[str, Any] = Field(default_factory=dict, max_length=40)
+    actor_type: str = Field(default="human", pattern="^human$")
+
+
+class KnowledgeRecordCreateRequest(BaseModel):
+    kind: KnowledgeAssetKind
+    content: dict[str, Any] = Field(min_length=1, max_length=60)
+    reason: str = Field(min_length=3, max_length=2000)
+    actor_type: str = Field(default="human", pattern="^human$")
+
+
+class KnowledgeRecordPatchRequest(BaseModel):
+    content: dict[str, Any] = Field(min_length=1, max_length=60)
+    reason: str = Field(min_length=3, max_length=2000)
+    expected_revision: int = Field(ge=1)
+    actor_type: str = Field(default="human", pattern="^human$")
+
+
 class LiteratureSearchRequest(BaseModel):
     queries: list[str] = Field(default_factory=list, max_length=12)
     backends: list[Literal["openalex", "crossref", "semantic_scholar", "arxiv"]] = Field(

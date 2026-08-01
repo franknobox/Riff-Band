@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "riffband"
-version = "0.3.0"
+version = "0.5.0"
 description = "基于 RiffBand Agent Runtime 的管理科学 AI 科研工作台"
 requires-python = ">=3.10"
 dependencies = [

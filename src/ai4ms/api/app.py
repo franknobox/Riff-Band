@@ -41,8 +41,18 @@ from ai4ms.services.models import (
     ConnectorToolRequest,
     CreateProjectRequest,
     DraftRequest,
+    EvidenceCandidateReviewRequest,
+    EvidenceDiscoveryRequest,
+    EvidenceRecordPatchRequest,
+    KnowledgeCandidateReviewRequest,
+    KnowledgeDiscoveryRequest,
     KnowledgeEvaluationRequest,
+    KnowledgeRecordCreateRequest,
+    KnowledgeRecordPatchRequest,
+    LiteraturePlanReviewRequest,
     LiteratureSearchRequest,
+    LiteratureScreeningRequest,
+    ProblemQuestionSelectionRequest,
     StageChatRequest,
     StageAssetSectionPatchRequest,
     StageDecisionRequest,
@@ -128,12 +138,13 @@ def create_app(
         analysis_runner=analysis_runner,
         knowledge_evaluation=knowledge_evaluation,
         stage_chat=resolved_stage_chat,
+        research_service=resolved_research_service,
         stage_assistant=stage_assistant,
     )
 
     app = FastAPI(
         title="AI4MS 科研工作台 API",
-        version="0.3.0",
+        version="0.5.0",
         description="面向管理科学的本地优先 AI 科研工作台。",
     )
     app.state.project_service = service
@@ -366,16 +377,131 @@ def create_app(
         return manifest
 
     @app.get("/api/v1/knowledge/methods", tags=["knowledge"])
-    async def method_registry(goal: str = "", q: str = "", limit: int = 10):
-        return {"items": KnowledgeRegistry.method_candidates(goal, q, limit)}
+    async def method_registry(
+        request: Request,
+        goal: str = "",
+        q: str = "",
+        limit: int = 10,
+    ):
+        return {
+            "items": get_service(request).method_registry(goal, q, limit)
+        }
 
     @app.get("/api/v1/knowledge/data-sources", tags=["knowledge"])
     async def data_source_registry(q: str = "", limit: int = 12):
         return {"items": KnowledgeRegistry.data_source_candidates(q, limit)}
 
     @app.get("/api/v1/knowledge/formulas", tags=["knowledge"])
-    async def formula_registry(q: str = "", method_id: list[str] | None = None, limit: int = 12):
-        return {"items": KnowledgeRegistry.formula_candidates(q, method_id or [], limit)}
+    async def formula_registry(
+        request: Request,
+        q: str = "",
+        method_id: list[str] | None = None,
+        limit: int = 12,
+    ):
+        return {
+            "items": get_service(request).formula_registry(
+                q,
+                method_id or [],
+                limit,
+            )
+        }
+
+    @app.get("/api/v1/knowledge/candidates", tags=["knowledge-governance"])
+    async def list_knowledge_candidates(
+        request: Request,
+        kind: str | None = None,
+        candidate_status: str | None = None,
+    ):
+        return {
+            "items": get_service(request).list_knowledge_candidates(
+                kind,
+                candidate_status,
+            )
+        }
+
+    @app.post(
+        "/api/v1/knowledge/candidates/discover",
+        tags=["knowledge-governance"],
+    )
+    async def discover_knowledge_candidates(
+        payload: KnowledgeDiscoveryRequest,
+        request: Request,
+    ):
+        return await get_service(request).discover_knowledge_candidates(
+            payload
+        )
+
+    @app.patch(
+        "/api/v1/knowledge/candidates/{candidate_id}/review",
+        tags=["knowledge-governance"],
+    )
+    async def review_knowledge_candidate(
+        candidate_id: str,
+        payload: KnowledgeCandidateReviewRequest,
+        request: Request,
+    ):
+        return get_service(request).review_knowledge_candidate(
+            candidate_id,
+            payload,
+        )
+
+    @app.post(
+        "/api/v1/knowledge/records",
+        tags=["knowledge-governance"],
+        status_code=status.HTTP_201_CREATED,
+    )
+    async def create_knowledge_record(
+        payload: KnowledgeRecordCreateRequest,
+        request: Request,
+    ):
+        return get_service(request).create_knowledge_record(payload)
+
+    @app.get(
+        "/api/v1/knowledge/records",
+        tags=["knowledge-governance"],
+    )
+    async def list_knowledge_records(
+        request: Request,
+        kind: str | None = None,
+    ):
+        return {
+            "items": get_service(request).list_knowledge_records(kind)
+        }
+
+    @app.get(
+        "/api/v1/knowledge/records/{record_id}",
+        tags=["knowledge-governance"],
+    )
+    async def get_knowledge_record(record_id: str, request: Request):
+        return get_service(request).get_knowledge_record(record_id)
+
+    @app.patch(
+        "/api/v1/knowledge/records/{record_id}",
+        tags=["knowledge-governance"],
+    )
+    async def patch_knowledge_record(
+        record_id: str,
+        payload: KnowledgeRecordPatchRequest,
+        request: Request,
+    ):
+        return get_service(request).patch_knowledge_record(
+            record_id,
+            payload,
+        )
+
+    @app.get(
+        "/api/v1/knowledge/records/{record_id}/revisions",
+        tags=["knowledge-governance"],
+    )
+    async def list_knowledge_record_revisions(
+        record_id: str,
+        request: Request,
+    ):
+        return {
+            "items": get_service(
+                request
+            ).list_knowledge_record_revisions(record_id)
+        }
 
     @app.get("/api/v1/knowledge/diagnostics", tags=["knowledge"])
     async def diagnostic_registry(
@@ -571,6 +697,28 @@ def create_app(
         return await get_service(request).chat_stage(project_id, stage_key, payload)
 
     @app.post(
+        "/api/v1/projects/{project_id}/stages/problem/question-selection",
+        tags=["problem"],
+    )
+    async def select_problem_question(
+        project_id: str,
+        payload: ProblemQuestionSelectionRequest,
+        request: Request,
+    ):
+        return get_service(request).select_problem_question(project_id, payload)
+
+    @app.post(
+        "/api/v1/projects/{project_id}/stages/literature/plan-review",
+        tags=["literature"],
+    )
+    async def review_literature_plan(
+        project_id: str,
+        payload: LiteraturePlanReviewRequest,
+        request: Request,
+    ):
+        return get_service(request).review_literature_plan(project_id, payload)
+
+    @app.post(
         "/api/v1/projects/{project_id}/stages/{stage_key}/tools/invoke",
         tags=["stage-tools"],
     )
@@ -634,6 +782,98 @@ def create_app(
     @app.post("/api/v1/projects/{project_id}/stages/literature/search", tags=["literature"])
     async def search_literature(project_id: str, payload: LiteratureSearchRequest, request: Request):
         return await get_service(request).search_literature(project_id, payload)
+
+    @app.patch(
+        "/api/v1/projects/{project_id}/stages/literature/papers/{paper_id}/screening",
+        tags=["literature"],
+    )
+    async def screen_literature_paper(
+        project_id: str,
+        paper_id: str,
+        payload: LiteratureScreeningRequest,
+        request: Request,
+    ):
+        return get_service(request).screen_literature_paper(
+            project_id, paper_id, payload
+        )
+
+    @app.get(
+        "/api/v1/projects/{project_id}/evidence-candidates",
+        tags=["evidence-library"],
+    )
+    async def list_evidence_candidates(project_id: str, request: Request):
+        return {
+            "items": get_service(request).list_evidence_candidates(project_id)
+        }
+
+    @app.post(
+        "/api/v1/projects/{project_id}/evidence-candidates/discover",
+        tags=["evidence-library"],
+    )
+    async def discover_evidence_candidates(
+        project_id: str,
+        payload: EvidenceDiscoveryRequest,
+        request: Request,
+    ):
+        return await get_service(request).discover_evidence_candidates(
+            project_id,
+            payload,
+        )
+
+    @app.patch(
+        "/api/v1/projects/{project_id}/evidence-candidates/{candidate_id}/review",
+        tags=["evidence-library"],
+    )
+    async def review_evidence_candidate(
+        project_id: str,
+        candidate_id: str,
+        payload: EvidenceCandidateReviewRequest,
+        request: Request,
+    ):
+        return get_service(request).review_evidence_candidate(
+            project_id,
+            candidate_id,
+            payload,
+        )
+
+    @app.get(
+        "/api/v1/projects/{project_id}/evidence-library",
+        tags=["evidence-library"],
+    )
+    async def list_evidence_library(project_id: str, request: Request):
+        return {
+            "items": get_service(request).list_evidence_library(project_id)
+        }
+
+    @app.get(
+        "/api/v1/projects/{project_id}/evidence-library/{evidence_id}",
+        tags=["evidence-library"],
+    )
+    async def get_evidence_record(
+        project_id: str,
+        evidence_id: str,
+        request: Request,
+    ):
+        return get_service(request).get_evidence_record(
+            project_id,
+            evidence_id,
+        )
+
+    @app.patch(
+        "/api/v1/projects/{project_id}/evidence-library/{evidence_id}",
+        tags=["evidence-library"],
+    )
+    async def patch_evidence_record(
+        project_id: str,
+        evidence_id: str,
+        payload: EvidenceRecordPatchRequest,
+        request: Request,
+    ):
+        return get_service(request).patch_evidence_record(
+            project_id,
+            evidence_id,
+            payload,
+        )
 
     @app.get(
         "/api/v1/projects/{project_id}/knowledge/evaluation",
@@ -765,6 +1005,13 @@ def create_app(
     @app.post("/api/v1/projects/{project_id}/stages/delivery/export", tags=["delivery"])
     async def export_delivery(project_id: str, request: Request):
         return get_service(request).export_delivery(project_id)
+
+    @app.get(
+        "/api/v1/projects/{project_id}/stages/delivery/quality",
+        tags=["delivery"],
+    )
+    async def get_delivery_quality(project_id: str, request: Request):
+        return get_service(request).delivery_quality(project_id)
 
     @app.get("/api/v1/projects/{project_id}/exports/{export_id}/report", tags=["delivery"])
     async def get_visual_report(project_id: str, export_id: str, request: Request):

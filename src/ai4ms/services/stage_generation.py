@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import os
 from datetime import UTC, datetime
 from typing import Any, Callable
@@ -11,8 +12,13 @@ from pydantic import ValidationError
 from ai4ms.inference.gateway import InferenceGateway, InferenceResponse, OpenAICompatibleGateway
 from ai4ms.inference.structured import StructuredOutputError, validate_structured_output
 from ai4ms.knowledge import KnowledgeRegistry
+from ai4ms.literature import LiteratureCoverageAuditor
 from ai4ms.orchestration import AO_STAGE_KEYS, OrchestrationResult, StageOrchestrator
 from ai4ms.prompts.catalog import PromptCatalog
+from ai4ms.reporting import (
+    build_ai_report_envelope,
+    validate_ai_report_envelope,
+)
 from ai4ms.runners.stata import StataPolicyScanner
 
 
@@ -103,6 +109,9 @@ class StageGenerationService:
             draft = validate_structured_output(first.text, prompt.contract)
             validated_content = draft.model_dump(mode="json")
             self._validate_reasoning_trace(validated_content)
+            self._validate_prompt_completeness(
+                validated_content, prompt.prompt_id, prompt.version
+            )
             self._validate_domain_references(validated_content, prompt.prompt_id, context)
         except StructuredOutputError as first_error:
             repair_prompt = f"""上一次输出未通过结构或引用约束：{first_error}
@@ -123,6 +132,9 @@ class StageGenerationService:
                 draft = validate_structured_output(repaired.text, prompt.contract)
                 validated_content = draft.model_dump(mode="json")
                 self._validate_reasoning_trace(validated_content)
+                self._validate_prompt_completeness(
+                    validated_content, prompt.prompt_id, prompt.version
+                )
                 self._validate_domain_references(validated_content, prompt.prompt_id, context)
             except StructuredOutputError as final_error:
                 raise StageGenerationOutputError(str(final_error)) from final_error
@@ -130,6 +142,7 @@ class StageGenerationService:
         content = draft.model_dump(mode="json")
         if stage_key == "problem":
             content["initial_idea"] = project["initial_idea"]
+            content["question_selection"] = {}
         if stage_key == "analysis":
             plan_stage = next(
                 (stage for stage in project.get("stages", []) if stage.get("key") == "identification"),
@@ -160,12 +173,37 @@ class StageGenerationService:
                 (stage for stage in project.get("stages", []) if stage.get("key") == "literature"),
                 {},
             )
-            papers = {
-                str(item.get("paper_id")): item
-                for item in literature_stage.get("content", {}).get("papers", [])
-                if isinstance(item, dict) and item.get("paper_id")
+            approved_evidence = {
+                str(item.get("evidence_id")): item
+                for item in literature_stage.get("content", {}).get(
+                    "evidence_library",
+                    [],
+                )
+                if isinstance(item, dict)
+                and item.get("status", "active") == "active"
+                and item.get("evidence_id")
             }
-            selected_paper_ids = set(content.get("reference_paper_ids", []))
+            evidence_by_paper = {
+                str(item.get("paper_id")): item
+                for item in approved_evidence.values()
+                if item.get("paper_id")
+            }
+            selected_evidence_ids = {
+                str(item)
+                for item in content.get("reference_evidence_ids", [])
+                if str(item).strip()
+            }
+            if not selected_evidence_ids:
+                selected_evidence_ids = {
+                    str(evidence_by_paper[paper_id]["evidence_id"])
+                    for paper_id in content.get("reference_paper_ids", [])
+                    if paper_id in evidence_by_paper
+                }
+            selected_records = [
+                approved_evidence[evidence_id]
+                for evidence_id in sorted(selected_evidence_ids)
+                if evidence_id in approved_evidence
+            ]
             content.update(
                 {
                     "approved_claims": [
@@ -176,12 +214,49 @@ class StageGenerationService:
                     ],
                     "references": [
                         {
-                            key: paper.get(key)
-                            for key in ("paper_id", "title", "authors", "year", "doi", "url")
-                            if paper.get(key) not in (None, "", [])
+                            **(
+                                dict(record.get("reference"))
+                                if isinstance(record.get("reference"), dict)
+                                else {
+                                    key: record.get(key)
+                                    for key in (
+                                        "paper_id",
+                                        "title",
+                                        "authors",
+                                        "year",
+                                        "venue",
+                                        "doi",
+                                        "url",
+                                    )
+                                    if record.get(key) not in (None, "", [])
+                                }
+                            ),
+                            "evidence_id": record["evidence_id"],
+                            "evidence_type": record.get(
+                                "evidence_type",
+                                "paper",
+                            ),
+                            "evidence_api_url": (
+                                f"/api/v1/projects/{project['project_id']}/"
+                                "evidence-library/"
+                                f"{record['evidence_id']}"
+                            ),
+                            "evidence_revision": record.get("revision", 1),
+                            "evidence_content_hash": record.get(
+                                "content_hash",
+                                "",
+                            ),
                         }
-                        for paper_id, paper in papers.items()
-                        if paper_id in selected_paper_ids
+                        for record in selected_records
+                    ],
+                    "reference_evidence_ids": [
+                        str(record["evidence_id"])
+                        for record in selected_records
+                    ],
+                    "reference_paper_ids": [
+                        str(record["paper_id"])
+                        for record in selected_records
+                        if record.get("paper_id")
                     ],
                     "source_evidence_revision": evidence_stage.get("revision", 0),
                     "source_evidence_hash": evidence_stage.get("content_hash", ""),
@@ -207,6 +282,29 @@ class StageGenerationService:
             content["generation"]["orchestration"] = orchestration.generation_metadata()
         elif "aorchestra_analysis" in context:
             content["generation"]["orchestration"] = context["aorchestra_analysis"]
+        literature_stage = next(
+            (
+                stage
+                for stage in project.get("stages", [])
+                if stage.get("key") == "literature"
+            ),
+            {},
+        )
+        evidence_library = (
+            literature_stage.get("content", {}).get("evidence_library", [])
+            if isinstance(literature_stage.get("content"), dict)
+            else []
+        )
+        content["ai_report"] = build_ai_report_envelope(
+            project_id=str(project["project_id"]),
+            stage_key=stage_key,
+            content=content,
+            prompt_id=prompt.prompt_id,
+            prompt_version=prompt.version,
+            model=responses[-1].model,
+            generated_at=content["generation"]["generated_at"],
+            evidence_library=evidence_library,
+        )
         return content
 
     @staticmethod
@@ -272,7 +370,15 @@ class StageGenerationService:
         if stage_key == "design":
             goal = str(context.get("problem_content", {}).get("objective", ""))
             query = f"{project['title']} {json_text(context.get('theory_content', {}))}"
-            context["method_candidates"] = KnowledgeRegistry.method_candidates(goal, query, 10)
+            context["method_candidates"] = KnowledgeRegistry.method_candidates(
+                goal,
+                query,
+                10,
+                extra_items=project.get("knowledge_library", {}).get(
+                    "methods",
+                    [],
+                ),
+            )
         if stage_key == "data":
             design_content = stages.get("design", {}).get("content", {})
             context["design_content"] = design_content
@@ -289,7 +395,19 @@ class StageGenerationService:
                 if isinstance(item, dict) and item.get("method_id")
             ]
             query = f"{project['title']} {json_text(design_content)} {json_text(data_content)}"
-            context["formula_candidates"] = KnowledgeRegistry.formula_candidates(query, method_ids, 14)
+            context["formula_candidates"] = KnowledgeRegistry.formula_candidates(
+                query,
+                method_ids,
+                14,
+                extra_items=project.get("knowledge_library", {}).get(
+                    "formulas",
+                    [],
+                ),
+                extra_methods=project.get("knowledge_library", {}).get(
+                    "methods",
+                    [],
+                ),
+            )
         if stage_key in {"analysis", "robustness"}:
             plan_stage = stages.get("identification", {})
             context["analysis_plan_revision"] = plan_stage.get("revision", 0)
@@ -342,30 +460,79 @@ class StageGenerationService:
             context["evidence_revision"] = evidence.get("revision", 0)
             context["evidence_hash"] = evidence.get("content_hash", "")
             context["evidence_content"] = evidence.get("content", {})
+            context["problem_content"] = stages.get("problem", {}).get("content", {})
+            context["design_content"] = stages.get("design", {}).get("content", {})
+            context["analysis_plan_content"] = StageGenerationService._compact_analysis_plan(
+                stages.get("identification", {}).get("content", {})
+            )
         return context
 
     @staticmethod
     def _compact_literature(content: dict[str, Any]) -> dict[str, Any]:
+        approved_evidence = {
+            str(item.get("paper_id")): item
+            for item in content.get("evidence_library", [])
+            if isinstance(item, dict)
+            and item.get("status", "active") == "active"
+            and item.get("evidence_type") == "paper"
+            and item.get("paper_id")
+        }
+        screening = {
+            str(item.get("paper_id")): item
+            for item in content.get("screening_decisions", [])
+            if isinstance(item, dict) and item.get("paper_id")
+        }
         papers = []
         for item in content.get("papers", [])[:30]:
             if not isinstance(item, dict):
                 continue
+            paper_id = str(item.get("paper_id") or "")
+            if paper_id not in approved_evidence:
+                continue
+            decision = screening.get(paper_id, {})
+            if decision.get("decision") == "exclude":
+                continue
+            evidence_level = LiteratureCoverageAuditor.effective_evidence_level(
+                item,
+                decision,
+            )
             papers.append(
                 {
-                    "paper_id": item.get("paper_id", ""),
+                    "paper_id": paper_id,
+                    "evidence_library_id": approved_evidence[paper_id].get(
+                        "evidence_id",
+                        "",
+                    ),
                     "title": item.get("title", ""),
                     "authors": item.get("authors", [])[:5],
                     "year": item.get("year", ""),
                     "doi": item.get("doi", ""),
                     "url": item.get("url", ""),
                     "abstract": str(item.get("abstract", ""))[:800],
+                    "full_text_excerpt": (
+                        str(item.get("full_text_excerpt") or item.get("full_text_text") or "")[:6000]
+                        if evidence_level == "full_text"
+                        else ""
+                    ),
+                    "screening_decision": decision.get("decision", "unreviewed"),
+                    "evidence_level": evidence_level,
                 }
             )
         return {
             "papers": papers,
+            "evidence_library": [
+                dict(item)
+                for item in content.get("evidence_library", [])
+                if isinstance(item, dict) and item.get("status", "active") == "active"
+            ][:80],
+            "paper_evidence_cards": content.get("paper_evidence_cards", []),
             "research_streams": content.get("research_streams", []),
             "syntheses": content.get("syntheses", []),
+            "method_comparisons": content.get("method_comparisons", []),
+            "contradictions": content.get("contradictions", []),
             "gap_candidates": content.get("gap_candidates", []),
+            "review_outline": content.get("review_outline", []),
+            "coverage_audit": content.get("coverage_audit", {}),
             "coverage_limits": content.get("coverage_limits", []),
         }
 
@@ -446,15 +613,29 @@ class StageGenerationService:
     def _evidence_artifacts(stages: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
         artifacts: list[dict[str, Any]] = []
         literature = stages.get("literature", {}).get("content", {})
-        for paper in literature.get("papers", [])[:50]:
-            if isinstance(paper, dict) and paper.get("paper_id"):
+        for record in literature.get("evidence_library", [])[:80]:
+            if (
+                isinstance(record, dict)
+                and record.get("evidence_id")
+                and record.get("status", "active") == "active"
+            ):
+                evidence_type = (
+                    "paper"
+                    if record.get("evidence_type") == "paper"
+                    else "data"
+                )
                 artifacts.append(
                     {
-                        "artifact_id": str(paper["paper_id"]),
-                        "kind": "paper",
-                        "allowed_evidence_types": ["paper"],
+                        "artifact_id": str(record["evidence_id"]),
+                        "kind": "evidence_library",
+                        "allowed_evidence_types": [evidence_type],
                         "supports_allowed": True,
-                        "title": str(paper.get("title", ""))[:300],
+                        "title": str(record.get("title", ""))[:300],
+                        "paper_id": str(record.get("paper_id", "")),
+                        "source_url": str(record.get("url", "")),
+                        "content_hash": str(
+                            record.get("content_hash", "")
+                        ),
                     }
                 )
         data = stages.get("data", {}).get("content", {})
@@ -525,8 +706,13 @@ class StageGenerationService:
             )
             if content.get("reasoning_trace") is not None or is_v2_model_draft:
                 cls._validate_reasoning_trace(validated)
+            if is_v2_model_draft:
+                validate_ai_report_envelope(
+                    content.get("ai_report"),
+                    stage_key=stage_key,
+                )
             cls._validate_domain_references(validated, prompt.prompt_id, context)
-        except (ValidationError, StructuredOutputError) as exc:
+        except (ValidationError, StructuredOutputError, ValueError) as exc:
             raise StageContentValidationError(str(exc)) from exc
 
     @staticmethod
@@ -574,11 +760,64 @@ class StageGenerationService:
             raise StructuredOutputError("reasoning_trace.next_verifications requires at least one item")
 
     @staticmethod
+    def _validate_prompt_completeness(
+        content: dict[str, Any],
+        prompt_id: str,
+        prompt_version: str,
+    ) -> None:
+        if prompt_id == "ai4ms.stage.problem":
+            if len(content.get("question_candidates", [])) < 2:
+                raise StructuredOutputError(
+                    "Prompt 2.1 problem draft requires at least two comparable question_candidates"
+                )
+            if not content.get("problem_diagnostics"):
+                raise StructuredOutputError(
+                    "Prompt 2.1 problem draft requires problem_diagnostics"
+                )
+            if not content.get("selection_tradeoffs"):
+                raise StructuredOutputError(
+                    "Prompt 2.1 problem draft requires explicit selection_tradeoffs"
+                )
+        if prompt_id == "ai4ms.stage.literature-synthesis":
+            if not content.get("paper_evidence_cards"):
+                raise StructuredOutputError(
+                    "Prompt 2.1 literature synthesis requires paper_evidence_cards"
+                )
+            if not content.get("method_comparisons"):
+                raise StructuredOutputError(
+                    "Prompt 2.1 literature synthesis requires method_comparisons"
+                )
+            if not content.get("review_outline"):
+                raise StructuredOutputError(
+                    "Prompt 2.1 literature synthesis requires a synthesis-oriented review_outline"
+                )
+        if prompt_id == "ai4ms.stage.delivery":
+            if not content.get("document_profile"):
+                raise StructuredOutputError(
+                    f"Prompt {prompt_version} delivery requires document_profile"
+                )
+            if not str(content.get("abstract") or "").strip() or not content.get("keywords"):
+                raise StructuredOutputError(
+                    f"Prompt {prompt_version} delivery requires an abstract and keywords"
+                )
+            if not content.get("manuscript_sections"):
+                raise StructuredOutputError(
+                    f"Prompt {prompt_version} delivery requires editable manuscript_sections"
+                )
+            if not content.get("logic_closure"):
+                raise StructuredOutputError(
+                    f"Prompt {prompt_version} delivery requires "
+                    "research-question-to-conclusion logic_closure"
+                )
+
+    @staticmethod
     def _validate_domain_references(
         content: dict[str, Any],
         prompt_id: str,
         context: dict[str, Any],
     ) -> None:
+        if prompt_id == "ai4ms.stage.problem":
+            StageGenerationService._validate_problem_identification(content)
         if prompt_id in {"ai4ms.stage.literature-synthesis", "ai4ms.stage.theory"}:
             allowed = {
                 str(item.get("paper_id"))
@@ -586,9 +825,19 @@ class StageGenerationService:
                 if isinstance(item, dict) and item.get("paper_id")
             }
             referenced = set(StageGenerationService._collect_values(content, "paper_ids"))
+            if prompt_id == "ai4ms.stage.literature-synthesis":
+                referenced.update(
+                    str(item.get("paper_id"))
+                    for item in content.get("paper_evidence_cards", [])
+                    if isinstance(item, dict) and item.get("paper_id")
+                )
             invalid = sorted(referenced - allowed)
             if invalid:
                 raise StructuredOutputError(f"output references unknown paper_ids: {invalid[:8]}")
+            if prompt_id == "ai4ms.stage.literature-synthesis":
+                StageGenerationService._validate_literature_synthesis(
+                    content, context, allowed
+                )
         if prompt_id == "ai4ms.stage.design":
             allowed = {str(item.get("method_id")) for item in context.get("method_candidates", [])}
             referenced = set(StageGenerationService._collect_values(content, "method_id"))
@@ -680,6 +929,120 @@ class StageGenerationService:
             StageGenerationService._validate_claim_evidence(content, context)
         if prompt_id == "ai4ms.stage.delivery":
             StageGenerationService._validate_delivery(content, context)
+
+    @staticmethod
+    def _validate_problem_identification(content: dict[str, Any]) -> None:
+        candidates = [
+            item
+            for item in content.get("question_candidates", [])
+            if isinstance(item, dict)
+        ]
+        candidate_ids = [str(item.get("question_id") or "") for item in candidates]
+        if len(candidate_ids) != len(set(candidate_ids)):
+            raise StructuredOutputError("problem question_candidates contain duplicate question_id")
+        diagnostic_ids = [
+            str(item.get("diagnostic_id") or "")
+            for item in content.get("problem_diagnostics", [])
+            if isinstance(item, dict)
+        ]
+        if len(diagnostic_ids) != len(set(diagnostic_ids)):
+            raise StructuredOutputError("problem_diagnostics contain duplicate diagnostic_id")
+        statements = [str(item.get("statement") or "").strip().casefold() for item in candidates]
+        if len(statements) != len(set(statements)):
+            raise StructuredOutputError(
+                "problem question_candidates must present materially distinct questions"
+            )
+
+    @staticmethod
+    def _validate_literature_synthesis(
+        content: dict[str, Any],
+        context: dict[str, Any],
+        allowed_paper_ids: set[str],
+    ) -> None:
+        cards = [
+            item
+            for item in content.get("paper_evidence_cards", [])
+            if isinstance(item, dict)
+        ]
+        card_ids = [str(item.get("paper_id") or "") for item in cards]
+        if len(card_ids) != len(set(card_ids)):
+            raise StructuredOutputError("paper_evidence_cards contain duplicate paper_id")
+        if cards and set(card_ids) != allowed_paper_ids:
+            missing = sorted(allowed_paper_ids - set(card_ids))
+            raise StructuredOutputError(
+                f"paper_evidence_cards must cover every non-excluded input paper; missing: {missing[:8]}"
+            )
+
+        papers = {
+            str(item.get("paper_id")): item
+            for item in context.get(
+                "literature_content", context.get("current_stage_content", {})
+            ).get("papers", [])
+            if isinstance(item, dict) and item.get("paper_id")
+        }
+        level_rank = {"metadata": 0, "abstract": 1, "full_text": 2}
+        for card in cards:
+            paper_id = str(card.get("paper_id") or "")
+            available_level = str(papers.get(paper_id, {}).get("evidence_level") or "metadata")
+            claimed_level = str(card.get("evidence_level") or "metadata")
+            if level_rank.get(claimed_level, 99) > level_rank.get(available_level, 0):
+                raise StructuredOutputError(
+                    f"paper {paper_id} claims {claimed_level} extraction but only "
+                    f"{available_level} evidence is available"
+                )
+            for finding in card.get("findings", []):
+                if not isinstance(finding, dict):
+                    continue
+                basis = finding.get("evidence_basis")
+                if basis == "explicit_full_text" and available_level != "full_text":
+                    raise StructuredOutputError(
+                        f"paper {paper_id} has a full-text finding without full-text evidence"
+                    )
+                if (
+                    basis in {"explicit_abstract", "abstract_inference"}
+                    and level_rank.get(available_level, 0) < level_rank["abstract"]
+                ):
+                    raise StructuredOutputError(
+                        f"paper {paper_id} has an abstract finding without an abstract"
+                    )
+                if finding.get("direction") == "not_reported" and finding.get(
+                    "reported_values"
+                ):
+                    raise StructuredOutputError(
+                        f"paper {paper_id} marks a finding not_reported but supplies values"
+                    )
+
+        for statement in content.get("syntheses", []):
+            if not isinstance(statement, dict):
+                continue
+            overlap = set(statement.get("supporting_paper_ids", [])) & set(
+                statement.get("opposing_paper_ids", [])
+            )
+            if overlap:
+                raise StructuredOutputError(
+                    f"a synthesis cannot use the same paper as support and opposition: {sorted(overlap)}"
+                )
+        for contradiction in content.get("contradictions", []):
+            if not isinstance(contradiction, dict):
+                continue
+            overlap = set(contradiction.get("supporting_paper_ids", [])) & set(
+                contradiction.get("opposing_paper_ids", [])
+            )
+            if overlap:
+                raise StructuredOutputError(
+                    f"a contradiction cannot place the same paper on both sides: {sorted(overlap)}"
+                )
+        for field, identifier in (
+            ("research_streams", "stream_id"),
+            ("review_outline", "section_id"),
+        ):
+            values = [
+                str(item.get(identifier) or "")
+                for item in content.get(field, [])
+                if isinstance(item, dict)
+            ]
+            if len(values) != len(set(values)):
+                raise StructuredOutputError(f"{field} contain duplicate {identifier}")
 
     @staticmethod
     def _validate_claim_evidence(content: dict[str, Any], context: dict[str, Any]) -> None:
@@ -803,6 +1166,37 @@ class StageGenerationService:
             for item in context.get("literature_content", {}).get("papers", [])
             if isinstance(item, dict) and item.get("paper_id")
         }
+        approved_library = {
+            str(item.get("evidence_id")): item
+            for item in context.get("literature_content", {}).get(
+                "evidence_library",
+                [],
+            )
+            if isinstance(item, dict)
+            and item.get("status", "active") == "active"
+            and item.get("evidence_id")
+        }
+        evidence_id_by_paper = {
+            str(item.get("paper_id")): evidence_id
+            for evidence_id, item in approved_library.items()
+            if item.get("evidence_type") == "paper"
+            and item.get("paper_id")
+        }
+        for field, identifier in (
+            ("conclusions", "conclusion_id"),
+            ("policy_implications", "implication_id"),
+            ("outline", "section_id"),
+            ("manuscript_sections", "section_id"),
+            ("logic_closure", "link_id"),
+            ("author_self_review", "issue_id"),
+        ):
+            values = [
+                str(item.get(identifier) or "")
+                for item in content.get(field, [])
+                if isinstance(item, dict)
+            ]
+            if len(values) != len(set(values)):
+                raise StructuredOutputError(f"{field} contain duplicate {identifier}")
         for conclusion in content.get("conclusions", []):
             conclusion_id = conclusion.get("conclusion_id", "")
             referenced_claims = set(conclusion.get("claim_ids", []))
@@ -845,9 +1239,195 @@ class StageGenerationService:
                 raise StructuredOutputError(
                     f"outline section {section.get('section_id')} contains unknown claim/evidence IDs"
                 )
-        unknown_papers = set(content.get("reference_paper_ids", [])) - paper_ids
+        reference_paper_ids = set(content.get("reference_paper_ids", []))
+        reference_evidence_ids = set(
+            content.get("reference_evidence_ids", [])
+        )
+        unknown_papers = reference_paper_ids - paper_ids
         if unknown_papers:
             raise StructuredOutputError(f"delivery references unknown paper_ids: {sorted(unknown_papers)}")
+        if len(content.get("reference_paper_ids", [])) != len(reference_paper_ids):
+            raise StructuredOutputError("delivery reference_paper_ids contain duplicates")
+        unknown_library_evidence = (
+            reference_evidence_ids - set(approved_library)
+        )
+        if unknown_library_evidence:
+            raise StructuredOutputError(
+                "delivery references evidence outside the human-approved "
+                f"evidence library: {sorted(unknown_library_evidence)}"
+            )
+        if len(content.get("reference_evidence_ids", [])) != len(
+            reference_evidence_ids
+        ):
+            raise StructuredOutputError(
+                "delivery reference_evidence_ids contain duplicates"
+            )
+        expected_reference_evidence = {
+            evidence_id_by_paper[paper_id]
+            for paper_id in reference_paper_ids
+            if paper_id in evidence_id_by_paper
+        }
+        if (
+            len(expected_reference_evidence) != len(reference_paper_ids)
+            or not expected_reference_evidence.issubset(
+                reference_evidence_ids
+            )
+        ):
+            raise StructuredOutputError(
+                "every reference_paper_id must map to an active "
+                "reference_evidence_id; additional approved data-study "
+                "evidence may be cited without a paper_id"
+            )
+
+        outline_ids = {
+            str(item.get("section_id"))
+            for item in content.get("outline", [])
+            if isinstance(item, dict) and item.get("section_id")
+        }
+        manuscript = [
+            item
+            for item in content.get("manuscript_sections", [])
+            if isinstance(item, dict)
+        ]
+        manuscript_ids = {
+            str(item.get("section_id"))
+            for item in manuscript
+            if item.get("section_id")
+        }
+        if manuscript and manuscript_ids != outline_ids:
+            raise StructuredOutputError(
+                "manuscript_sections must cover exactly the approved outline section_ids"
+            )
+        marker_pattern = re.compile(
+            r"\[(paper|claim|evidence):([A-Za-z0-9_.:-]+)\]"
+        )
+        for section in manuscript:
+            section_id = str(section.get("section_id") or "")
+            section_claims = set(section.get("claim_ids", []))
+            section_evidence = set(section.get("evidence_ids", []))
+            section_papers = set(section.get("citation_paper_ids", []))
+            section_library_evidence = set(
+                section.get("citation_evidence_ids", [])
+            )
+            unknown_claims = section_claims - set(usable_claims)
+            allowed_section_evidence = {
+                str(evidence.get("evidence_id"))
+                for claim_id in section_claims
+                for evidence in usable_claims.get(claim_id, {}).get("evidence", [])
+                if isinstance(evidence, dict) and evidence.get("evidence_id")
+            }
+            unknown_evidence = section_evidence - allowed_section_evidence
+            unknown_section_papers = section_papers - reference_paper_ids
+            unknown_section_library_evidence = (
+                section_library_evidence - reference_evidence_ids
+            )
+            if unknown_claims:
+                raise StructuredOutputError(
+                    f"manuscript section {section_id} references unavailable claims: "
+                    f"{sorted(unknown_claims)}"
+                )
+            if unknown_evidence:
+                raise StructuredOutputError(
+                    f"manuscript section {section_id} references evidence outside its claims: "
+                    f"{sorted(unknown_evidence)}"
+                )
+            if unknown_section_papers:
+                raise StructuredOutputError(
+                    f"manuscript section {section_id} cites papers outside reference_paper_ids: "
+                    f"{sorted(unknown_section_papers)}"
+                )
+            if unknown_section_library_evidence:
+                raise StructuredOutputError(
+                    f"manuscript section {section_id} links evidence outside "
+                    "reference_evidence_ids: "
+                    f"{sorted(unknown_section_library_evidence)}"
+                )
+            expected_section_library_evidence = {
+                evidence_id_by_paper[paper_id]
+                for paper_id in section_papers
+                if paper_id in evidence_id_by_paper
+            }
+            if (
+                section_papers
+                and not expected_section_library_evidence.issubset(
+                    section_library_evidence
+                )
+            ):
+                raise StructuredOutputError(
+                    f"manuscript section {section_id} must declare the "
+                    "evidence-library record for every cited paper"
+                )
+            if section.get("content_status") == "draft" and not str(
+                section.get("body_markdown") or ""
+            ).strip():
+                raise StructuredOutputError(
+                    f"draft manuscript section {section_id} has no body_markdown"
+                )
+            if section.get("content_status") in {"blocked", "needs_evidence"} and not section.get(
+                "unresolved_items"
+            ):
+                raise StructuredOutputError(
+                    f"manuscript section {section_id} requires unresolved_items"
+                )
+            declared = {
+                "paper": section_papers,
+                "claim": section_claims,
+                "evidence": section_evidence,
+            }
+            known = {
+                "paper": paper_ids,
+                "claim": set(usable_claims),
+                "evidence": all_evidence_ids,
+            }
+            for kind, identifier in marker_pattern.findall(
+                str(section.get("body_markdown") or "")
+            ):
+                if identifier not in known[kind]:
+                    raise StructuredOutputError(
+                        f"manuscript section {section_id} contains unknown inline "
+                        f"{kind} marker: {identifier}"
+                    )
+                if identifier not in declared[kind]:
+                    raise StructuredOutputError(
+                        f"manuscript section {section_id} inline {kind} marker is not "
+                        f"declared in the section contract: {identifier}"
+                    )
+
+        conclusion_ids = {
+            str(item.get("conclusion_id"))
+            for item in content.get("conclusions", [])
+            if isinstance(item, dict) and item.get("conclusion_id")
+        }
+        closure = [
+            item for item in content.get("logic_closure", []) if isinstance(item, dict)
+        ]
+        if closure:
+            linked_conclusions: set[str] = set()
+            for item in closure:
+                unknown_claims = set(item.get("claim_ids", [])) - set(usable_claims)
+                unknown_conclusions = set(item.get("conclusion_ids", [])) - conclusion_ids
+                if unknown_claims or unknown_conclusions:
+                    raise StructuredOutputError(
+                        f"logic closure {item.get('link_id')} contains unknown "
+                        "claim/conclusion IDs"
+                    )
+                linked_conclusions.update(item.get("conclusion_ids", []))
+                if item.get("closure_status") == "closed" and str(
+                    item.get("missing_link") or ""
+                ).strip():
+                    raise StructuredOutputError(
+                        f"closed logic closure {item.get('link_id')} cannot report a missing link"
+                    )
+                if item.get("closure_status") != "closed" and not str(
+                    item.get("missing_link") or ""
+                ).strip():
+                    raise StructuredOutputError(
+                        f"incomplete logic closure {item.get('link_id')} requires missing_link"
+                    )
+            if linked_conclusions != conclusion_ids:
+                raise StructuredOutputError(
+                    "logic_closure must map every conclusion_id exactly into the research logic"
+                )
 
     @staticmethod
     def _collect_values(value: Any, key_suffix: str) -> list[str]:

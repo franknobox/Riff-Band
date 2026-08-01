@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ai4ms.inference.gateway import InferenceGateway, OpenAICompatibleGateway
+from ai4ms.reporting import build_ai_report_envelope
 from ai4ms.search import WebResearchService
 from ai4ms.services.models import STAGES_BY_KEY, StageChatRequest
 from ai4ms.services.stage_generation import StageGenerationService
@@ -116,6 +117,35 @@ class StageChatService:
             usage=response.usage,
             citations=citations,
             search=search_trace,
+            ai_report=build_ai_report_envelope(
+                project_id=str(project["project_id"]),
+                stage_key=stage_key,
+                content={
+                    "executive_summary": response.text[:3000],
+                    "reasoning_trace": {
+                        "problem_framing": request.message[:1500],
+                        "logic_chain": [],
+                        "assumptions": [],
+                        "alternatives": [],
+                        "uncertainties": (
+                            ["本轮联网检索未取得完整来源，回答需要进一步核验。"]
+                            if search_trace.get("status") in {"failed", "partial"}
+                            else []
+                        ),
+                        "human_decisions": [
+                            "研究者决定是否采纳本轮建议并同步到正式阶段资产。"
+                        ],
+                        "next_verifications": [
+                            "核对引用来源并在保存阶段资产前完成事实与方法复核。"
+                        ],
+                    },
+                },
+                prompt_id="ai4ms.stage.chat",
+                prompt_version="1.0.0",
+                model=response.model,
+                source_links=citations,
+                evidence_library=_evidence_library(project),
+            ),
         )
         self._append_messages(
             project["project_id"],
@@ -172,6 +202,7 @@ class StageChatService:
         usage: dict | None = None,
         citations: list[dict[str, Any]] | None = None,
         search: dict[str, Any] | None = None,
+        ai_report: dict[str, Any] | None = None,
     ) -> dict:
         return {
             "message_id": f"msg_{uuid.uuid4().hex[:12]}",
@@ -184,6 +215,7 @@ class StageChatService:
             "usage": dict(usage or {}),
             "citations": list(citations or []),
             "search": dict(search) if search else None,
+            "ai_report": dict(ai_report) if ai_report else None,
         }
 
     def _chat_path(self, project_id: str, stage_key: str) -> Path:
@@ -240,3 +272,24 @@ class StageChatService:
                 os.replace(temporary, path)
             finally:
                 temporary.unlink(missing_ok=True)
+
+
+def _evidence_library(project: dict[str, Any]) -> list[dict[str, Any]]:
+    literature = next(
+        (
+            stage
+            for stage in project.get("stages", [])
+            if stage.get("key") == "literature"
+        ),
+        {},
+    )
+    content = literature.get("content", {})
+    return (
+        [
+            item
+            for item in content.get("evidence_library", [])
+            if isinstance(item, dict)
+        ]
+        if isinstance(content, dict)
+        else []
+    )

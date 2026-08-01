@@ -9,12 +9,12 @@
 | `db/` | SQLite、revision 和审批持久化 |
 | `orchestration/` | AOrchestra 阶段编排 |
 | `inference/` | 模型网关与结构化输出 |
-| `literature/` | 文献检索和快照 |
+| `literature/` | 文献检索、快照、计划指纹、逐篇筛选和覆盖审计 |
 | `knowledge/` | 方法、公式和数据源注册表 |
 | `prompts/` | S0-S9 提示词和输出契约 |
 | `assets/` | 数据资产登记和元信息 |
 | `runners/` | Stata Runner、后台任务和 Result Bundle |
-| `delivery/` | HTML、Word、PDF、图表、Mermaid 和 Stata/综合研究包 |
+| `delivery/` | 学术输出质量门、引用/逻辑审计、HTML、Word、PDF、图表、Mermaid 和 Stata/综合研究包 v2 |
 
 边界规则：
 

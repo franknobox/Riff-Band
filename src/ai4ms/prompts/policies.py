@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 RiskLevel = Literal["R0", "R1", "R2", "R3", "R4", "R5"]
 
-PROMPT_POLICY_REGISTRY_VERSION = "2.0.0"
+PROMPT_POLICY_REGISTRY_VERSION = "2.1.0"
 
 RISK_LEVELS: dict[str, str] = {
     "R0": "只读本地元数据或注册表，不产生持久化变更。",
@@ -188,6 +188,17 @@ STAGE_AGENT_POLICIES: tuple[StageAgentPolicy, ...] = (
                 "返回 revision 冲突并要求重新比较。",
                 True,
             ),
+            _tool(
+                "problem.question.select",
+                "把研究者选择的候选问题和理由绑定到当前候选集指纹。",
+                "R2",
+                ("研究者明确选择 question_id",),
+                ("候选问题仍属于当前 revision",),
+                ("保存选择、理由、候选集指纹和人工身份",),
+                ("替研究者选择", "沿用已过期候选集上的选择"),
+                "拒绝保存并要求研究者基于最新候选集重新选择。",
+                True,
+            ),
         ),
         management_science_checks=(
             "问题是否同时说明管理主体、决策或组织情境，而非只有技术指标。",
@@ -212,12 +223,24 @@ STAGE_AGENT_POLICIES: tuple[StageAgentPolicy, ...] = (
         required_inputs=("S0 问题与概念块", "检索时间窗和语言", "研究者指定数据库或核心文献"),
         reasoning_steps=(
             "把问题拆成核心、相邻、反向、经典与近期查询族。",
-            "先记录检索方案，再调用数据源；保存查询式、时间、返回量与失败信息。",
+            "先记录检索方案，由研究者确认 plan fingerprint 后再自动调用数据源；保存查询式、时间、返回量与失败信息。",
             "基于 DOI、规范化标题和作者年份去重，不把引用次数等同于证据质量。",
-            "按纳排标准筛选，区分元数据、摘要信息和阅读全文证据。",
-            "按研究流派、结论方向、方法和情境综合，并保留争议、空白候选与覆盖限制。",
+            "按纳排标准逐篇筛选，区分元数据、摘要信息和阅读全文证据，并为每篇保留提取定位。",
+            "先形成逐篇证据卡，再按研究流派、结论方向、方法和情境进行流派内与跨流派综合。",
+            "把综述组织为概念、理论、方法、争议和研究切入点，不按论文逐条罗列。",
         ),
         tools=(
+            _tool(
+                "literature.plan.review",
+                "由研究者批准或退回当前检索计划，并绑定确定性 plan fingerprint。",
+                "R2",
+                ("模型已生成可执行 query plan",),
+                ("query blocks、数据库、时间窗和纳排标准已保存",),
+                ("保存人工决定、理由和 plan fingerprint",),
+                ("自动批准", "计划变化后沿用旧批准"),
+                "阻止自动检索，允许研究者显式提交本次 queries。",
+                True,
+            ),
             _tool(
                 "literature.openalex",
                 "检索 OpenAlex 的论文、作者、机构和引用元数据。",
@@ -267,6 +290,16 @@ STAGE_AGENT_POLICIES: tuple[StageAgentPolicy, ...] = (
                 ("生成可撤销筛选记录", "保留排除理由"),
                 ("删除原始检索记录", "修改人工纳排决定"),
                 "输出冲突清单并停止自动合并。",
+            ),
+            _tool(
+                "literature.extract_evidence_cards",
+                "按论文证据等级并行提取问题、理论、设计、数据、方法、发现、局限、贡献和定位。",
+                "R2",
+                ("多源去重结果已保存", "论文未被人工排除"),
+                ("paper_id 唯一", "证据等级已记录"),
+                ("生成逐篇可审阅证据卡", "保留缺失字段和提取定位"),
+                ("把摘要当全文", "补造数值或结论", "用常识填补原文缺失"),
+                "降低 evidence_level，写入 unknowns，并保留该论文的失败状态。",
             ),
         ),
         management_science_checks=(
@@ -726,6 +759,16 @@ STAGE_AGENT_POLICIES: tuple[StageAgentPolicy, ...] = (
                 ("检查缺失、孤立和不一致引用",),
                 ("联网猜测缺失引用", "自动替换争议书目"),
                 "阻止正式导出并给出待修复清单。",
+            ),
+            _tool(
+                "delivery.quality_audit",
+                "确定性检查章节结构、逻辑闭环、引用双向对应、书目字段、学术表达和披露。",
+                "R0",
+                ("正文或引用发生变化", "研究者准备导出或批准 G5"),
+                ("当前 S9 revision 可读取",),
+                ("区分 must_fix、should_improve、note", "返回具体位置和修复动作"),
+                ("机械质量打分", "把通用模板规则强加给不适用研究范式"),
+                "返回可复现问题清单；must_fix 未清零时阻止正式导出。",
             ),
             _tool(
                 "delivery.export",

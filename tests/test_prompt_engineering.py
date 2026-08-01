@@ -54,7 +54,7 @@ def _trace(step_id: str = "L01", refs: list[str] | None = None) -> dict:
 def test_policy_registry_covers_s0_s9_in_order():
     assert tuple((item.stage_id, item.stage_key) for item in STAGE_AGENT_POLICIES) == EXPECTED_STAGES
     registry = prompt_policy_registry()
-    assert registry["registry_version"] == "2.0.0"
+    assert registry["registry_version"] == "2.1.0"
     assert len(registry["items"]) == 10
     assert set(registry["risk_levels"]) == {"R0", "R1", "R2", "R3", "R4", "R5"}
 
@@ -79,16 +79,23 @@ def test_every_stage_policy_has_tools_human_decisions_and_stop_conditions():
                 assert tool.requires_human_confirmation is True
 
 
-def test_prompt_catalog_is_version_2_and_exposes_agent_policy():
+def test_prompt_catalog_exposes_21_research_and_writing_prompts_with_agent_policy():
     manifest = PromptCatalog.manifest()
-    assert manifest["registry_version"] == "2.0.0"
+    assert manifest["registry_version"] == "2.1.0"
     assert manifest["reasoning_trace"] == {
         "kind": "auditable_rationale",
         "private_chain_of_thought": False,
         "required_for_model_generation": True,
     }
     assert len(manifest["items"]) == 11  # S1 has plan and synthesis prompts.
-    assert {item["prompt_version"] for item in manifest["items"]} == {"2.0.0"}
+    versions = {
+        item["prompt_id"]: item["prompt_version"] for item in manifest["items"]
+    }
+    assert versions["ai4ms.stage.problem"] == "2.1.0"
+    assert versions["ai4ms.stage.literature-plan"] == "2.1.0"
+    assert versions["ai4ms.stage.literature-synthesis"] == "2.1.0"
+    assert versions["ai4ms.stage.delivery"] == "2.3.0"
+    assert set(versions.values()) == {"2.0.0", "2.1.0", "2.3.0"}
     assert {item["stage_key"] for item in manifest["items"]} == {
         stage_key for _, stage_key in EXPECTED_STAGES
     }
@@ -129,16 +136,33 @@ def test_reasoning_trace_hard_validator_rejects_missing_evidence_refs():
         StageGenerationService._validate_reasoning_trace({"reasoning_trace": trace})
 
 
+def test_delivery_23_completeness_is_enforced_before_ai_report_is_saved():
+    with pytest.raises(
+        StructuredOutputError,
+        match="Prompt 2.3.0 delivery requires document_profile",
+    ):
+        StageGenerationService._validate_prompt_completeness(
+            {
+                "abstract": "有边界的摘要。",
+                "keywords": ["管理科学"],
+                "manuscript_sections": [{"section_id": "SEC1"}],
+                "logic_closure": [{"link_id": "LC1"}],
+            },
+            "ai4ms.stage.delivery",
+            "2.3.0",
+        )
+
+
 def test_prompt_registry_api_is_versioned_and_stage_meta_includes_policy(tmp_path):
     client = TestClient(create_app(data_dir=tmp_path))
 
     response = client.get("/api/v1/meta/prompts")
     assert response.status_code == 200
-    assert response.headers["x-ai4ms-prompt-registry-version"] == "2.0.0"
-    assert response.headers["etag"] == 'W/"prompts-2.0.0"'
+    assert response.headers["x-ai4ms-prompt-registry-version"] == "2.1.0"
+    assert response.headers["etag"] == 'W/"prompts-2.1.0"'
     assert response.json()["reasoning_trace"]["private_chain_of_thought"] is False
 
     stages = client.get("/api/v1/meta/stages").json()["items"]
     assert len(stages) == 10
-    assert stages[0]["prompt"]["prompt_version"] == "2.0.0"
+    assert stages[0]["prompt"]["prompt_version"] == "2.1.0"
     assert stages[0]["agent_policy"]["principal_agent"] == "选题侦察智能体"

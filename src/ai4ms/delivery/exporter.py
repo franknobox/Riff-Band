@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import UTC, datetime
 from html import escape
 from pathlib import Path, PurePosixPath
@@ -9,6 +10,7 @@ from typing import Any
 from uuid import uuid4
 from zipfile import ZIP_DEFLATED, ZipFile
 
+from ai4ms.delivery.quality import AcademicOutputQualityService
 from ai4ms.delivery.renderers import (
     build_visual_assets,
     enhance_interactive_html,
@@ -52,6 +54,11 @@ class DeliveryExportService:
             StageGenerationService.validate_stage_content(project, "delivery", delivery.get("content", {}))
         except StageContentValidationError as exc:
             raise DeliveryExportError(f"S9 交付校验未通过：{exc}") from exc
+        quality = AcademicOutputQualityService.audit(project)
+        if quality["counts"]["must_fix"]:
+            raise DeliveryExportError(
+                f"S9 学术输出仍有 {quality['counts']['must_fix']} 项必须修复问题"
+            )
 
         project_id = str(project["project_id"])
         project_dir = self.projects_dir / project_id
@@ -64,6 +71,7 @@ class DeliveryExportService:
         report_docx = export_dir / "report.docx"
         report_pdf = export_dir / "report.pdf"
         snapshot_path = export_dir / "project_snapshot.json"
+        quality_path = export_dir / "output_quality.json"
         manifest_path = export_dir / "manifest.json"
         stata_package_path = export_dir / "stata_reproduction.zip"
         package_path = export_dir / "research_package.zip"
@@ -84,6 +92,10 @@ class DeliveryExportService:
             json.dumps(project, ensure_ascii=False, indent=2, sort_keys=True),
             encoding="utf-8",
         )
+        quality_path.write_text(
+            json.dumps(quality, ensure_ascii=False, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
 
         run_artifacts = self._public_run_artifacts(project, project_dir)
         self._build_stata_package(
@@ -98,6 +110,11 @@ class DeliveryExportService:
             (report_docx, "report/report.docx", "editable_word_report"),
             (report_pdf, "report/report.pdf", "fixed_pdf_report"),
             (snapshot_path, "project/project_snapshot.json", "project_snapshot"),
+            (
+                quality_path,
+                "quality/output_quality.json",
+                "academic_output_quality",
+            ),
             (
                 stata_package_path,
                 "reproduction/stata_reproduction.zip",
@@ -134,6 +151,12 @@ class DeliveryExportService:
                 "excluded_extensions": [".dta"],
                 "note": "原始研究数据默认不进入交付包；包内仅包含白名单结果和复现产物。",
             },
+            "academic_output_quality": {
+                "rules_version": quality["schema_version"],
+                "status": quality["status"],
+                "counts": quality["counts"],
+                "path": "quality/output_quality.json",
+            },
         }
         manifest_path.write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True),
@@ -163,6 +186,8 @@ class DeliveryExportService:
             "pdf_sha256": self._sha256(report_pdf),
             "stata_package_sha256": self._sha256(stata_package_path),
             "package_sha256": self._sha256(package_path),
+            "quality_status": quality["status"],
+            "quality_counts": quality["counts"],
         }
 
     @staticmethod
@@ -181,6 +206,7 @@ class DeliveryExportService:
                 "research_package_path",
                 "manifest_path",
             }
+            and value not in (None, "", [], {})
         }
         payload = json.dumps(scientific_content, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -432,13 +458,91 @@ class DeliveryExportService:
         analysis = stages.get("analysis", {}).get("content", {})
         conclusions = delivery.get("conclusions", [])
         claims = evidence.get("claims", [])
+        profile = (
+            delivery.get("document_profile")
+            if isinstance(delivery.get("document_profile"), dict)
+            else {}
+        )
+        quality = AcademicOutputQualityService.audit(project)
 
         lines = [
             f"# {self._md(delivery.get('title') or project.get('title', 'AI4MS 研究报告'))}",
             "",
+            "## 摘要",
+            "",
+            self._md(delivery.get("abstract", "")),
+            "",
+            f"**关键词：** {self._md('；'.join(delivery.get('keywords', [])))}",
+            "",
             "## 执行摘要",
             "",
             self._md(delivery.get("executive_summary", "")),
+            "",
+            "## 文档与研究范式",
+            "",
+            self._table_marker(
+                ["文档类型", "研究范式", "受众", "语言", "引用格式", "共同方法偏差"],
+                [
+                    [
+                        profile.get("document_type", "未声明"),
+                        profile.get("research_paradigm", "未声明"),
+                        profile.get("audience", "未声明"),
+                        profile.get("language", "未声明"),
+                        profile.get("citation_style", "未声明"),
+                        profile.get("common_method_bias_applicability", "未判断"),
+                    ]
+                ],
+            ),
+            "",
+        ]
+        manuscript = [
+            item
+            for item in delivery.get("manuscript_sections", [])
+            if isinstance(item, dict)
+        ]
+        if manuscript:
+            lines.extend(["## 可编辑正文", ""])
+            for section in manuscript:
+                lines.extend(
+                    [
+                        f"### {self._md(section.get('title', '未命名章节'))}",
+                        "",
+                        self._safe_markdown_block(section.get("body_markdown", "")),
+                        "",
+                        (
+                            f"*资产链接：claims {self._md(', '.join(section.get('claim_ids', [])) or '无')} · "
+                            f"evidence {self._md(', '.join(section.get('evidence_ids', [])) or '无')} · "
+                            f"papers {self._md(', '.join(section.get('citation_paper_ids', [])) or '无')} · "
+                            f"evidence_library {self._md(', '.join(section.get('citation_evidence_ids', [])) or '无')}*"
+                        ),
+                        "",
+                    ]
+                )
+        lines.extend(
+            [
+            "## 学术输出质量检查",
+            "",
+            (
+                f"状态：**{self._md(quality['status'])}** · "
+                f"必须修复 {quality['counts']['must_fix']} · "
+                f"建议优化 {quality['counts']['should_improve']} · "
+                f"说明 {quality['counts']['note']}"
+            ),
+            "",
+            self._table_marker(
+                ["规则", "级别", "维度", "位置", "发现", "修复动作"],
+                [
+                    [
+                        item.get("rule_id", ""),
+                        item.get("severity", ""),
+                        item.get("dimension", ""),
+                        item.get("location", ""),
+                        item.get("finding", ""),
+                        item.get("required_action", ""),
+                    ]
+                    for item in quality.get("issues", [])
+                ],
+            ),
             "",
             "## 研究流程与审批状态",
             "",
@@ -499,7 +603,8 @@ class DeliveryExportService:
             "",
             "## 机制、异质性与反证",
             "",
-        ]
+            ]
+        )
         for mechanism in evidence.get("mechanisms", []):
             if isinstance(mechanism, dict):
                 lines.append(
@@ -560,13 +665,11 @@ class DeliveryExportService:
         for limitation in delivery.get("limitations", []):
             lines.append(f"- {self._md(limitation)}")
         lines.extend(["", self._md(delivery.get("disclosure", "")), "", "## 参考文献", ""])
-        for paper in delivery.get("references", []):
+        citation_style = str(profile.get("citation_style") or "gbt7714_numeric")
+        for index, paper in enumerate(delivery.get("references", []), start=1):
             if isinstance(paper, dict):
-                authors = ", ".join(str(value) for value in paper.get("authors", []))
                 lines.append(
-                    f"- [{self._md(paper.get('paper_id', ''))}] {self._md(authors)}. "
-                    f"{self._md(paper.get('title', ''))}. {self._md(paper.get('year', ''))}. "
-                    f"DOI: {self._md(paper.get('doi', ''))}"
+                    self._format_reference(paper, citation_style, index)
                 )
         lines.extend(
             [
@@ -589,6 +692,71 @@ class DeliveryExportService:
     @staticmethod
     def _md(value: Any) -> str:
         return escape(str(value or ""), quote=False).replace("\r", " ").replace("\n", " ")
+
+    @staticmethod
+    def _safe_markdown_block(value: Any) -> str:
+        text = escape(str(value or ""), quote=False).replace("\r\n", "\n").replace("\r", "\n")
+        return re.sub(
+            r"\[(paper|claim|evidence):([A-Za-z0-9_.:-]+)\]",
+            lambda match: f"[{match.group(1)}:{match.group(2)}]",
+            text,
+        )
+
+    @classmethod
+    def _format_reference(
+        cls,
+        paper: dict[str, Any],
+        citation_style: str,
+        index: int,
+    ) -> str:
+        authors = [str(value).strip() for value in paper.get("authors", []) if str(value).strip()]
+        author_text = ", ".join(authors) or "作者待核验"
+        title = cls._md(paper.get("title") or "题名待核验")
+        year = cls._md(paper.get("year") or "年份待核验")
+        venue = cls._md(paper.get("venue") or "")
+        doi = cls._md(paper.get("doi") or "")
+        url = cls._md(paper.get("url") or "")
+        evidence_id = cls._md(paper.get("evidence_id") or "")
+        identifier = cls._md(
+            paper.get("paper_id") or paper.get("evidence_id") or ""
+        )
+        evidence_type = str(paper.get("evidence_type") or "paper")
+        evidence_api_url = str(paper.get("evidence_api_url") or "")
+        library_link = (
+            f" [证据库:{evidence_id}]({evidence_api_url})"
+            if evidence_id
+            and evidence_api_url.startswith("/api/v1/projects/")
+            else f" [证据库:{evidence_id}]"
+            if evidence_id
+            else ""
+        )
+        suffix = f" DOI: {doi}." if doi else f" {url}." if url else ""
+        if citation_style == "apa7_author_date":
+            return (
+                f"- [{identifier}] {cls._md(author_text)} ({year}). {title}. "
+                f"{venue}.{suffix}{library_link}"
+            ).replace("  ", " ").strip()
+        if citation_style == "chicago_author_date":
+            return (
+                f"- [{identifier}] {cls._md(author_text)}. {year}. “{title}.” "
+                f"{venue}.{suffix}{library_link}"
+            ).replace("  ", " ").strip()
+        if citation_style == "journal_custom":
+            return (
+                f"- [{identifier}] {cls._md(author_text)}. {title}. {venue}, "
+                f"{year}.{suffix}{library_link}（请按目标期刊规则复核）"
+            ).replace("  ", " ").strip()
+        reference_type = (
+            "[DB/OL]"
+            if evidence_type == "data_study"
+            else "[J]"
+            if venue
+            else "[文献类型待核验]"
+        )
+        return (
+            f"- [{index}] [{identifier}] {cls._md(author_text)}. {title}{reference_type}. "
+            f"{venue}, {year}.{suffix}{library_link}"
+        ).replace("  ", " ").strip()
 
     @staticmethod
     def _sha256(path: Path) -> str:

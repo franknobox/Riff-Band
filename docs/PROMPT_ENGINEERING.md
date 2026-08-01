@@ -16,9 +16,9 @@
 
 | 阶段 | Prompt ID | 输出 | 边界 |
 |---|---|---|---|
-| S0 问题识别 | `ai4ms.stage.problem@2.0.0` | 研究对象、边界、目标、概念块、问题、候选空白和反向检索 | 空白只能是 candidate；原始想法由服务端强制保留 |
-| S1 检索计划 | `ai4ms.stage.literature-plan@2.0.0` | 多源查询块、纳排标准、筛选问题、反向检索和覆盖限制 | 只生成检索计划，不生成论文或结论 |
-| S1 证据综述 | `ai4ms.stage.literature-synthesis@2.0.0` | 研究流派、共识/争议、候选空白和后续建议 | 只能引用当前 S1 已保存的 `paper_id` |
+| S0 问题识别 | `ai4ms.stage.problem@2.1.0` | 可比较问题候选、问题诊断、选择取舍、边界、概念、空白候选和反向检索 | 人工选择绑定候选集 fingerprint；空白只能是 candidate |
+| S1 检索计划 | `ai4ms.stage.literature-plan@2.1.0` | 多源查询块、纳排标准、筛选问题、反向检索和覆盖限制 | 模型 query plan 需人工批准 fingerprint 后才能自动执行 |
+| S1 证据综述 | `ai4ms.stage.literature-synthesis@2.1.0` | 逐篇证据卡、流派、方法比较、矛盾、综合型大纲、空白候选和后续建议 | 证据等级与 locator 硬校验；只能引用未排除的当前 `paper_id` |
 | S2 理论构建 | `ai4ms.stage.theory@2.0.0` | 理论视角、构念、机制、竞争解释和可证伪命题 | 论文引用只能使用 S1 的 `paper_id`；证据不足必须降级 |
 | S3 研究设计 | `ai4ms.stage.design@2.0.0` | 主备方法、假设、证伪、有效性威胁和停止条件 | 方法只能从运行时方法库候选列表中选择 |
 | S4 数据与变量 | `ai4ms.stage.data@2.0.0` | 数据源、变量、样本、连接键、质量、隐私和伦理检查 | 数据源只能从运行时数据源库候选列表中选择；权限默认未知 |
@@ -26,7 +26,7 @@
 | S6 结果分析 | `ai4ms.stage.analysis@2.0.0` | 运行准备、预检和结果审阅清单 | do-file、S5 revision/hash 由服务端强制绑定；模型不能生成运行结果 |
 | S7 稳健性检验 | `ai4ms.stage.robustness@2.0.0` | 稳健性矩阵、失败项、解释限制和后续运行 | 只能引用现有规格和 Run；无结构化结果时不能标记 passed/failed |
 | S8 机制与异质性 | `ai4ms.stage.evidence@2.0.0` | Claim-Evidence-Assumption、机制、异质性、反证和限制 | artifact、run、method 和稳健性 ID 必须来自输入；阻塞运行不能支持结论；不利稳健性必须降低置信度 |
-| S9 结论与政策含义 | `ai4ms.stage.delivery@2.0.0` | 结论、政策含义、写作大纲、引用选择、披露和复现说明 | 只能使用 G4 已批准且未撤回的主张及其 evidence_id；报告路径和发布状态由服务端生成 |
+| S9 结论与政策含义 | `ai4ms.stage.delivery@2.3.0` | 文档 profile、摘要、可编辑分节正文、引用、逻辑闭环、自检、披露和复现说明 | 每个 paper ID 映射人工批准的 `EVLIB_*`，数据研究直接引用 `EVLIB_*`；must-fix 未清零不得导出 |
 
 ## 2. 提示词原则
 
@@ -61,7 +61,7 @@ S0-S9 可以请求真实模型：
 }
 ```
 
-S1 第一次生成得到检索计划；调用文献检索端点保存论文后，再次生成会自动切换为证据综述。S8 没有可用论文、数据或 Run 证据时不会伪造主张；S9 只有在 S8/G4 批准后解锁。模型未配置返回 HTTP 503 `inference_unavailable`；阶段尚未实现返回 HTTP 409 `model_generation_not_supported`；两次结构或引用校验失败返回 HTTP 502 `invalid_model_output`。
+S1 第一次生成得到检索计划；模型计划需通过 `/stages/literature/plan-review` 人工批准后才能无参数执行，研究者也可以在检索请求中显式提交本次 queries。检索后可通过逐篇 screening API 保存纳排和证据等级，再次生成会切换为证据综述。S8 没有可用论文、数据或 Run 证据时不会伪造主张；S9 只有在 S8/G4 批准后解锁，并可通过 `/stages/delivery/quality` 查看确定性学术输出检查。模型未配置返回 HTTP 503 `inference_unavailable`；阶段尚未实现返回 HTTP 409 `model_generation_not_supported`；两次结构或引用校验失败返回 HTTP 502 `invalid_model_output`。
 
 服务层会再次校验论文、方法和数据源 ID。提示词中的约束不是唯一防线。
 

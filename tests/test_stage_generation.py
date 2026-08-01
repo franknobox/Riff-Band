@@ -63,6 +63,47 @@ def _problem_payload() -> dict:
                 "counter_search": "generative AI adoption firm innovation heterogeneity",
             }
         ],
+        "question_candidates": [
+            {
+                "question_id": "RQ1",
+                "statement": "生成式 AI 采用与企业创新结果之间存在什么关系？",
+                "question_type": "explain",
+                "management_decision": "企业是否以及如何配置生成式 AI 投资",
+                "unit_of_analysis": "企业",
+                "outcome_or_objective": "解释企业创新结果的差异",
+                "candidate_contribution": "theory",
+                "evidence_refs": ["project.initial_idea"],
+                "feasibility_status": "conditional",
+                "data_needs": ["企业 AI 采用与创新结果的同层级数据"],
+                "falsifier": "系统检索显示关系和机制已在相同情境中得到充分检验。",
+            },
+            {
+                "question_id": "RQ2",
+                "statement": "哪些组织条件会改变生成式 AI 采用与企业创新结果的关系？",
+                "question_type": "explore",
+                "management_decision": "企业应在何种组织条件下优先配置生成式 AI",
+                "unit_of_analysis": "企业",
+                "outcome_or_objective": "识别关系的组织边界条件",
+                "candidate_contribution": "context",
+                "evidence_refs": ["project.initial_idea"],
+                "feasibility_status": "unknown",
+                "data_needs": ["组织能力与治理条件数据"],
+                "falsifier": "可用数据无法测量关键组织条件。",
+            },
+        ],
+        "problem_diagnostics": [
+            {
+                "diagnostic_id": "PD1",
+                "dimension": "unit_alignment",
+                "status": "warning",
+                "finding": "研究单位为企业，但 AI 采用可能在团队层级发生。",
+                "evidence_refs": ["project.initial_idea"],
+                "required_action": "由研究者确认采用指标与结果变量是否处于同一层级。",
+            }
+        ],
+        "selection_tradeoffs": [
+            "RQ1 更聚焦但需要可靠的企业层采用指标；RQ2 更能体现边界条件但数据需求更高。"
+        ],
         "counter_searches": ["生成式 AI 企业创新 相邻术语 已有研究"],
         "unknowns": ["采用指标口径", "可获得数据范围"],
     }
@@ -138,6 +179,18 @@ def test_problem_generation_is_validated_and_preserves_initial_idea():
     assert content["generation"]["prompt_id"] == "ai4ms.stage.problem"
     assert content["generation"]["model"] == "test-model"
     assert content["generation"]["attempts"] == 1
+    assert content["ai_report"]["schema_version"] == "ai4ms.ai-report.v1"
+    assert (
+        content["ai_report"]["paradigm"]
+        == "evidence_linked_management_science"
+    )
+    assert (
+        content["ai_report"]["auditable_rationale"][
+            "private_chain_of_thought"
+        ]
+        is False
+    )
+    assert content["ai_report"]["human_control"]["review_required"] is True
     assert len(gateway.calls) == 1
 
 
@@ -292,6 +345,21 @@ def _s1_s4_project() -> dict:
                         "abstract": "A study of enterprise AI adoption and innovation.",
                     }
                 ],
+                "evidence_library": [
+                    {
+                        "evidence_id": "EVLIB_A",
+                        "evidence_type": "paper",
+                        "status": "active",
+                        "revision": 1,
+                        "paper_id": "paper_a",
+                        "title": "AI adoption and innovation",
+                        "authors": ["Li Ming"],
+                        "year": 2024,
+                        "url": "https://example.org/paper-a",
+                        "evidence_level": "abstract",
+                        "content_hash": "a" * 64,
+                    }
+                ],
                 "syntheses": [
                     {
                         "statement": "现有证据提示二者相关，但识别仍有限。",
@@ -306,6 +374,118 @@ def _s1_s4_project() -> dict:
         {"key": "data", "revision": 0, "content": {}},
     ]
     return project
+
+
+def _literature_synthesis_payload(evidence_level: str = "abstract") -> dict:
+    basis = "explicit_full_text" if evidence_level == "full_text" else "explicit_abstract"
+    return {
+        "reasoning_trace": _reasoning_trace("paper_a"),
+        "paper_evidence_cards": [
+            {
+                "paper_id": "paper_a",
+                "evidence_level": evidence_level,
+                "core_problem": "考察企业采用 AI 与创新结果之间的关系。",
+                "theoretical_lenses": ["组织信息处理理论"],
+                "methodology": {
+                    "research_design": "观察性企业研究",
+                    "unit_of_analysis": "企业",
+                    "sample_and_context": "摘要只说明企业情境，样本细节待全文核验。",
+                    "data_sources": [],
+                    "analysis_methods": [],
+                    "identification_or_solution_logic": "摘要未提供足以确认因果识别的设计信息。",
+                },
+                "findings": [
+                    {
+                        "finding_id": "PF1",
+                        "statement": "摘要提示 AI 采用与创新之间存在关系。",
+                        "direction": "supports",
+                        "evidence_basis": basis,
+                        "locator": "abstract",
+                        "reported_values": [],
+                    }
+                ],
+                "contributions": ["把 AI 采用置于企业创新情境中讨论"],
+                "limitations": ["当前只有摘要级证据"],
+                "extraction_locators": [
+                    {
+                        "field_name": "core_problem",
+                        "locator": "abstract",
+                        "evidence_level": evidence_level,
+                    }
+                ],
+                "unknowns": ["样本量与具体识别策略"],
+            }
+        ],
+        "research_streams": [
+            {
+                "stream_id": "stream_adoption",
+                "name": "AI 采用与创新",
+                "description": "讨论企业采用 AI 与创新结果之间关系的研究。",
+                "paper_ids": ["paper_a"],
+                "naming_evidence": "paper_a 的题名与摘要。",
+            }
+        ],
+        "syntheses": [
+            {
+                "statement": "当前摘要级证据提示二者相关，但不能支持因果结论。",
+                "status": "limited",
+                "supporting_paper_ids": ["paper_a"],
+                "opposing_paper_ids": [],
+                "qualifiers": ["只有一篇摘要级记录"],
+            }
+        ],
+        "method_comparisons": [
+            {
+                "method_label": "观察性企业研究",
+                "paper_ids": ["paper_a"],
+                "strengths": ["贴近企业管理情境"],
+                "limitations": ["摘要不足以确认识别策略"],
+                "suitable_contexts": ["企业采用研究"],
+                "identification_limits": ["不能由相关性推出因果"],
+            }
+        ],
+        "contradictions": [],
+        "gap_candidates": [],
+        "review_outline": [
+            {
+                "section_id": "LR1",
+                "title": "AI 采用与创新关系的证据边界",
+                "purpose": "综合理论、方法和情境限制，而非逐篇罗列。",
+                "paper_ids": ["paper_a"],
+                "synthesis_focus": "evidence",
+                "required_contrasts": ["关系证据与因果识别"],
+            }
+        ],
+        "recommended_next_steps": ["补充全文并执行反向检索。"],
+        "unknowns": ["全文方法与结果数值"],
+        "coverage_limits": ["当前只有一篇摘要级论文。"],
+    }
+
+
+def test_literature_synthesis_downgrades_full_text_claim_to_available_abstract():
+    project = _s1_s4_project()
+    gateway = _FakeGateway(
+        [
+            InferenceResponse(
+                text=json.dumps(_literature_synthesis_payload("full_text"), ensure_ascii=False),
+                model="test",
+                usage={},
+            ),
+            InferenceResponse(
+                text=json.dumps(_literature_synthesis_payload("abstract"), ensure_ascii=False),
+                model="test",
+                usage={},
+            ),
+        ]
+    )
+
+    content = asyncio.run(
+        StageGenerationService(lambda: gateway).generate(project, "literature")
+    )
+
+    assert content["paper_evidence_cards"][0]["evidence_level"] == "abstract"
+    assert content["review_outline"][0]["synthesis_focus"] == "evidence"
+    assert content["generation"]["attempts"] == 2
 
 
 def _theory_payload() -> dict:
@@ -633,7 +813,7 @@ def _claim_evidence_payload(confidence: str = "low") -> dict:
                     {
                         "evidence_id": "EV1",
                         "evidence_type": "paper",
-                        "artifact_id": "paper_a",
+                        "artifact_id": "EVLIB_A",
                         "locator": "title and abstract metadata",
                         "direction": "supports",
                         "strength": "moderate",
@@ -776,6 +956,17 @@ def _delivery_payload(evidence_id: str = "EV1") -> dict:
     return {
         "reasoning_trace": _reasoning_trace(evidence_id),
         "title": "AI 采用与企业创新：受当前证据约束的研究报告",
+        "document_profile": {
+            "document_type": "research_report",
+            "research_paradigm": "empirical_quantitative",
+            "audience": "管理科学研究者与企业管理者",
+            "language": "zh-CN",
+            "citation_style": "gbt7714_numeric",
+            "journal_or_institution_requirements": [],
+            "common_method_bias_applicability": "not_applicable",
+        },
+        "abstract": "本报告评估生成式 AI 采用与企业创新的现有证据，并明确本地运行阻塞所造成的解释边界。",
+        "keywords": ["生成式 AI", "企业创新", "证据综合"],
         "executive_summary": "现有论文提示二者存在关系，但本地运行阻塞，因此报告只保留低置信、有限范围的结论。",
         "conclusions": [
             {
@@ -802,7 +993,58 @@ def _delivery_payload(evidence_id: str = "EV1") -> dict:
             {"section_id": "SEC2", "title": "结果限制", "purpose": "披露运行阻塞及其解释影响。", "claim_ids": ["C1"], "evidence_ids": ["EV2"]},
             {"section_id": "SEC3", "title": "结论", "purpose": "给出受证据约束的结论。", "claim_ids": ["C1"], "evidence_ids": ["EV1", "EV2"]},
         ],
+        "manuscript_sections": [
+            {
+                "section_id": "SEC1",
+                "title": "问题与证据",
+                "purpose": "说明研究问题和文献边界。",
+                "body_markdown": "现有论文只能支持有限的关系判断 [paper:paper_a] [claim:C1] [evidence:EV1]。",
+                "claim_ids": ["C1"],
+                "evidence_ids": ["EV1"],
+                "citation_paper_ids": ["paper_a"],
+                "citation_evidence_ids": ["EVLIB_A"],
+                "content_status": "draft",
+                "unresolved_items": [],
+            },
+            {
+                "section_id": "SEC2",
+                "title": "结果限制",
+                "purpose": "披露运行阻塞及其解释影响。",
+                "body_markdown": "本地运行当前阻塞，因此不得报告未产生的估计结果 [claim:C1] [evidence:EV2]。",
+                "claim_ids": ["C1"],
+                "evidence_ids": ["EV2"],
+                "citation_paper_ids": [],
+                "citation_evidence_ids": [],
+                "content_status": "draft",
+                "unresolved_items": [],
+            },
+            {
+                "section_id": "SEC3",
+                "title": "结论",
+                "purpose": "给出受证据约束的结论。",
+                "body_markdown": "综合现有论文和运行限制，只能形成有限结论 [paper:paper_a] [claim:C1] [evidence:EV1] [evidence:EV2]。",
+                "claim_ids": ["C1"],
+                "evidence_ids": ["EV1", "EV2"],
+                "citation_paper_ids": ["paper_a"],
+                "citation_evidence_ids": ["EVLIB_A"],
+                "content_status": "draft",
+                "unresolved_items": [],
+            },
+        ],
+        "logic_closure": [
+            {
+                "link_id": "LC1",
+                "research_question_refs": ["生成式 AI 采用如何影响企业创新？"],
+                "method_or_design_refs": ["当前文献综合与获批证据资产"],
+                "claim_ids": ["C1"],
+                "conclusion_ids": ["CON1"],
+                "closure_status": "partial",
+                "missing_link": "本地模型运行阻塞，尚无项目内估计。",
+            }
+        ],
+        "author_self_review": [],
         "reference_paper_ids": ["paper_a"],
+        "reference_evidence_ids": ["EVLIB_A"],
         "limitations": ["本地 Runner 不可用。"],
         "reproducibility_notes": ["所有结论保留 claim_id 和 evidence_id。"],
         "disclosure": "本报告由 AI 生成结构草稿并由研究者审阅，未把阻塞运行表述为成功结果。",
@@ -829,5 +1071,6 @@ def test_delivery_generation_only_uses_approved_claims_and_their_evidence():
     assert content["conclusions"][0]["evidence_ids"] == ["EV1"]
     assert content["approved_claims"] == ["C1"]
     assert content["references"][0]["paper_id"] == "paper_a"
+    assert content["references"][0]["evidence_id"] == "EVLIB_A"
     assert content["source_evidence_hash"] == "evidence_hash"
     assert content["generation"]["attempts"] == 2

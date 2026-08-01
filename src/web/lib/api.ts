@@ -310,6 +310,190 @@ export interface KnowledgeEvaluation {
   methods: KnowledgeAssessment[];
   formulas: KnowledgeAssessment[];
   usage: Record<string, unknown>;
+  ai_report: AIReportEnvelope | null;
+}
+
+export interface AIReportEnvelope {
+  schema_version: "ai4ms.ai-report.v1";
+  paradigm: "evidence_linked_management_science";
+  report_kind: string;
+  stage_key: string;
+  title: string;
+  executive_summary: string;
+  auditable_rationale: {
+    kind: "research_facing_logic";
+    private_chain_of_thought: false;
+    problem_framing: string;
+    logic_chain: Array<Record<string, unknown>>;
+    assumptions: string[];
+    alternatives: string[];
+    uncertainties: string[];
+    human_decisions: string[];
+    next_verifications: string[];
+  };
+  source_links: Array<{
+    citation_id?: string;
+    title?: string;
+    url: string;
+    provider?: string;
+    source_type?: string;
+    retrieved_at?: string;
+    paper_id?: string;
+  }>;
+  evidence_library_links: Array<{
+    evidence_id: string;
+    title: string;
+    evidence_type: string;
+    paper_id: string;
+    status: string;
+    revision: number;
+    api_url: string;
+  }>;
+  asset_references: {
+    paper_ids: string[];
+    claim_ids: string[];
+    evidence_ids: string[];
+    method_ids: string[];
+    formula_ids: string[];
+    run_ids: string[];
+  };
+  limitations: string[];
+  human_control: {
+    review_required: true;
+    editable: true;
+    approval_status: string;
+    prohibited_agent_actions: string[];
+  };
+  provenance: {
+    project_id: string;
+    prompt_id: string;
+    prompt_version: string;
+    model: string;
+    generated_at: string;
+  };
+}
+
+export type EvidenceCandidateStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "changes_requested";
+
+export interface EvidenceCandidate {
+  candidate_id: string;
+  candidate_type: "literature" | "data_study";
+  status: EvidenceCandidateStatus;
+  revision: number;
+  title: string;
+  authors: string[];
+  year: number | null;
+  venue: string;
+  doi: string;
+  url: string;
+  abstract: string;
+  summary?: string;
+  paper_id: string;
+  provider: string;
+  source_type: string;
+  search_id: string;
+  source_snapshot: string;
+  source_hash: string;
+  created_by: "agent";
+  created_at: string;
+  updated_at: string;
+  review: {
+    decision: "approve" | "reject" | "request_changes";
+    reason: string;
+    evidence_level: EvidenceLevel;
+    reviewed_by: "human";
+    reviewed_at: string;
+  } | null;
+}
+
+export type EvidenceLevel =
+  | "metadata"
+  | "abstract"
+  | "full_text"
+  | "source_page";
+
+export interface EvidenceLibraryRecord {
+  evidence_id: string;
+  source_candidate_id: string;
+  evidence_type: "paper" | "data_study";
+  status: "active" | "archived";
+  revision: number;
+  title: string;
+  authors: string[];
+  year: number | null;
+  venue: string;
+  doi: string;
+  url: string;
+  paper_id: string;
+  abstract: string;
+  summary: string;
+  provider: string;
+  evidence_level: EvidenceLevel;
+  source_hash: string;
+  approved_by: "human";
+  approved_at: string;
+  updated_at: string;
+  content_hash: string;
+  audit_trail: Array<{
+    action: string;
+    actor_type: "human";
+    reason: string;
+    created_at: string;
+  }>;
+}
+
+export type KnowledgeAssetKind = "method" | "formula";
+
+export interface KnowledgeGovernanceCandidate {
+  candidate_id: string;
+  kind: KnowledgeAssetKind;
+  revision: number;
+  status: EvidenceCandidateStatus;
+  query: string;
+  proposed_content: Record<string, unknown>;
+  source_links: SearchCitation[];
+  search_trace: Record<string, unknown> & {
+    ai_report?: AIReportEnvelope;
+  };
+  review: {
+    decision: "approve" | "reject" | "request_changes";
+    reason: string;
+    reviewed_by: "human";
+    reviewed_at: string;
+  } | null;
+  promoted_record_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KnowledgeGovernanceRecord {
+  record_id: string;
+  kind: KnowledgeAssetKind;
+  revision: number;
+  status: "active" | "archived";
+  source_candidate_id: string | null;
+  content: Record<string, unknown>;
+  content_hash: string;
+  change_reason: string;
+  author_type: "human";
+  created_at: string;
+  updated_at: string;
+  revision_created_at: string;
+}
+
+export interface KnowledgeRecordRevision {
+  revision_id: string;
+  record_id: string;
+  kind: KnowledgeAssetKind;
+  revision: number;
+  content_hash: string;
+  change_reason: string;
+  author_type: "human";
+  created_at: string;
 }
 
 export interface KnowledgeEvaluationJob {
@@ -413,6 +597,7 @@ export interface StageChatMessage {
   usage: Record<string, unknown>;
   citations: SearchCitation[];
   search: SearchTrace | null;
+  ai_report: AIReportEnvelope | null;
 }
 
 export interface StageChatTurn {
@@ -450,6 +635,41 @@ export interface DiagnosticRegistry {
   count: number;
   total: number;
   items: DiagnosticRule[];
+}
+
+export type LiteratureScreeningDecision = "include" | "exclude" | "unsure";
+export type LiteratureEvidenceLevel = "metadata" | "abstract" | "full_text";
+
+export interface AcademicOutputQualityIssue {
+  rule_id: string;
+  severity: "must_fix" | "should_improve" | "note";
+  dimension: string;
+  location: string;
+  finding: string;
+  required_action: string;
+}
+
+export interface AcademicOutputQuality {
+  schema_version: string;
+  delivery_revision: number;
+  delivery_content_hash: string;
+  status: "needs_revision" | "ready_with_advisories" | "ready";
+  counts: {
+    must_fix: number;
+    should_improve: number;
+    note: number;
+  };
+  issues: AcademicOutputQualityIssue[];
+  traceability: {
+    section_count: number;
+    cited_paper_ids: string[];
+    cited_claim_ids: string[];
+    cited_evidence_ids: string[];
+    reference_paper_ids: string[];
+    reference_evidence_ids: string[];
+    approved_evidence_library_ids: string[];
+    problem_question_count: number;
+  };
 }
 
 interface ApiErrorPayload {
@@ -669,6 +889,26 @@ export function searchLiterature(projectId: string, queries: string[] = []): Pro
   });
 }
 
+export function selectProblemQuestion(
+  projectId: string,
+  selectedQuestionId: string,
+  rationale: string,
+  expectedRevision: number,
+): Promise<Project> {
+  return request<Project>(
+    `/projects/${encodeURIComponent(projectId)}/stages/problem/question-selection`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        selected_question_id: selectedQuestionId,
+        rationale,
+        expected_revision: expectedRevision,
+        actor_type: "human",
+      }),
+    },
+  );
+}
+
 export async function getStageDefinitions(): Promise<StageDefinition[]> {
   const payload = await request<{ items: StageDefinition[] }>("/meta/stages");
   return payload.items;
@@ -686,6 +926,26 @@ export function invokeStageTool(
     {
       method: "POST",
       body: JSON.stringify({ tool_id: toolId, query, instruction }),
+    },
+  );
+}
+
+export function reviewLiteraturePlan(
+  projectId: string,
+  decision: "approve" | "request_changes",
+  reason: string,
+  expectedRevision: number,
+): Promise<Project> {
+  return request<Project>(
+    `/projects/${encodeURIComponent(projectId)}/stages/literature/plan-review`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        decision,
+        reason,
+        expected_revision: expectedRevision,
+        actor_type: "human",
+      }),
     },
   );
 }
@@ -713,6 +973,60 @@ export function generateStageSuggestions(
   );
 }
 
+export function screenLiteraturePaper(
+  projectId: string,
+  paperId: string,
+  decision: LiteratureScreeningDecision,
+  reason: string,
+  evidenceLevel: LiteratureEvidenceLevel,
+  expectedRevision: number,
+): Promise<Project> {
+  return request<Project>(
+    `/projects/${encodeURIComponent(projectId)}/stages/literature/papers/${encodeURIComponent(paperId)}/screening`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        decision,
+        reason,
+        evidence_level: evidenceLevel,
+        expected_revision: expectedRevision,
+        actor_type: "human",
+      }),
+    },
+  );
+}
+
+export async function listEvidenceCandidates(
+  projectId: string,
+): Promise<EvidenceCandidate[]> {
+  const response = await request<{ items: EvidenceCandidate[] }>(
+    `/projects/${encodeURIComponent(projectId)}/evidence-candidates`,
+  );
+  return response.items;
+}
+
+export function discoverEvidenceCandidates(
+  projectId: string,
+  query: string,
+  candidateType: "literature" | "data_study",
+  expectedRevision: number,
+  limit = 8,
+): Promise<Project> {
+  return request<Project>(
+    `/projects/${encodeURIComponent(projectId)}/evidence-candidates/discover`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        query,
+        candidate_type: candidateType,
+        expected_revision: expectedRevision,
+        limit,
+        actor_type: "agent",
+      }),
+    },
+  );
+}
+
 export function decideStageSuggestion(
   projectId: string,
   stageKey: string,
@@ -726,6 +1040,176 @@ export function decideStageSuggestion(
       method: "POST",
       body: JSON.stringify({ state, note }),
     },
+  );
+}
+
+export function reviewEvidenceCandidate(
+  projectId: string,
+  candidateId: string,
+  decision: "approve" | "reject" | "request_changes",
+  reason: string,
+  evidenceLevel: EvidenceLevel,
+  expectedRevision: number,
+  edits: Record<string, unknown> = {},
+): Promise<Project> {
+  return request<Project>(
+    `/projects/${encodeURIComponent(projectId)}/evidence-candidates/${encodeURIComponent(candidateId)}/review`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        decision,
+        reason,
+        evidence_level: evidenceLevel,
+        expected_revision: expectedRevision,
+        edits,
+        actor_type: "human",
+      }),
+    },
+  );
+}
+
+export async function listEvidenceLibrary(
+  projectId: string,
+): Promise<EvidenceLibraryRecord[]> {
+  const response = await request<{ items: EvidenceLibraryRecord[] }>(
+    `/projects/${encodeURIComponent(projectId)}/evidence-library`,
+  );
+  return response.items;
+}
+
+export function patchEvidenceRecord(
+  projectId: string,
+  evidenceId: string,
+  edits: Record<string, unknown>,
+  reason: string,
+  expectedRevision: number,
+): Promise<Project> {
+  return request<Project>(
+    `/projects/${encodeURIComponent(projectId)}/evidence-library/${encodeURIComponent(evidenceId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        edits,
+        reason,
+        expected_revision: expectedRevision,
+        actor_type: "human",
+      }),
+    },
+  );
+}
+
+export async function listKnowledgeGovernanceCandidates(
+  kind?: KnowledgeAssetKind,
+  status?: EvidenceCandidateStatus,
+): Promise<KnowledgeGovernanceCandidate[]> {
+  const parameters = new URLSearchParams();
+  if (kind) parameters.set("kind", kind);
+  if (status) parameters.set("candidate_status", status);
+  const suffix = parameters.size ? `?${parameters.toString()}` : "";
+  const response = await request<{ items: KnowledgeGovernanceCandidate[] }>(
+    `/knowledge/candidates${suffix}`,
+  );
+  return response.items;
+}
+
+export function discoverKnowledgeCandidates(
+  kind: KnowledgeAssetKind,
+  query: string,
+  limit = 6,
+): Promise<{
+  schema_version: string;
+  kind: KnowledgeAssetKind;
+  count: number;
+  items: KnowledgeGovernanceCandidate[];
+  ai_report: AIReportEnvelope;
+}> {
+  return request("/knowledge/candidates/discover", {
+    method: "POST",
+    body: JSON.stringify({ kind, query, limit, actor_type: "agent" }),
+  });
+}
+
+export function reviewKnowledgeCandidate(
+  candidateId: string,
+  decision: "approve" | "reject" | "request_changes",
+  reason: string,
+  expectedRevision: number,
+  edits: Record<string, unknown>,
+): Promise<{
+  candidate: KnowledgeGovernanceCandidate;
+  record: KnowledgeGovernanceRecord | null;
+}> {
+  return request(
+    `/knowledge/candidates/${encodeURIComponent(candidateId)}/review`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        decision,
+        reason,
+        expected_revision: expectedRevision,
+        edits,
+        actor_type: "human",
+      }),
+    },
+  );
+}
+
+export async function listKnowledgeGovernanceRecords(
+  kind?: KnowledgeAssetKind,
+): Promise<KnowledgeGovernanceRecord[]> {
+  const suffix = kind ? `?kind=${encodeURIComponent(kind)}` : "";
+  const response = await request<{ items: KnowledgeGovernanceRecord[] }>(
+    `/knowledge/records${suffix}`,
+  );
+  return response.items;
+}
+
+export function createKnowledgeRecord(
+  kind: KnowledgeAssetKind,
+  content: Record<string, unknown>,
+  reason: string,
+): Promise<KnowledgeGovernanceRecord> {
+  return request("/knowledge/records", {
+    method: "POST",
+    body: JSON.stringify({ kind, content, reason, actor_type: "human" }),
+  });
+}
+
+export function getKnowledgeRecord(
+  recordId: string,
+): Promise<KnowledgeGovernanceRecord> {
+  return request(`/knowledge/records/${encodeURIComponent(recordId)}`);
+}
+
+export function patchKnowledgeRecord(
+  recordId: string,
+  content: Record<string, unknown>,
+  reason: string,
+  expectedRevision: number,
+): Promise<KnowledgeGovernanceRecord> {
+  return request(`/knowledge/records/${encodeURIComponent(recordId)}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      content,
+      reason,
+      expected_revision: expectedRevision,
+      actor_type: "human",
+    }),
+  });
+}
+
+export async function listKnowledgeRecordRevisions(
+  recordId: string,
+): Promise<KnowledgeRecordRevision[]> {
+  const response = await request<{ items: KnowledgeRecordRevision[] }>(
+    `/knowledge/records/${encodeURIComponent(recordId)}/revisions`,
+  );
+  return response.items;
+}
+
+export function getDeliveryQuality(projectId: string): Promise<AcademicOutputQuality> {
+  return request<AcademicOutputQuality>(
+    `/projects/${encodeURIComponent(projectId)}/stages/delivery/quality`,
   );
 }
 

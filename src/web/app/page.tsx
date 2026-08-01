@@ -16,14 +16,18 @@ import {
   ApiError,
   analysisRunArtifactUrl,
   cancelAnalysisRun,
+  createKnowledgeRecord as createApiKnowledgeRecord,
   createStageDraft as createApiStageDraft,
   createProject as createApiProject,
   decideStageSuggestion as decideApiStageSuggestion,
   decideStage as decideApiStage,
+  discoverEvidenceCandidates as discoverApiEvidenceCandidates,
+  discoverKnowledgeCandidates as discoverApiKnowledgeCandidates,
   deliveryArtifactUrl,
   exportDelivery as exportApiDelivery,
   getAnalysisJob,
   getAnalysisRunResult,
+  getDeliveryQuality as getApiDeliveryQuality,
   getDiagnosticRegistry as getApiDiagnosticRegistry,
   getKnowledgeEvaluation as getApiKnowledgeEvaluation,
   getKnowledgeEvaluationJob as getApiKnowledgeEvaluationJob,
@@ -32,6 +36,8 @@ import {
   getStataRunnerStatus,
   getProject as getApiProject,
   getUserProfile as getApiUserProfile,
+  listKnowledgeGovernanceCandidates as listApiKnowledgeGovernanceCandidates,
+  listKnowledgeGovernanceRecords as listApiKnowledgeGovernanceRecords,
   listProjects as listApiProjects,
   listAnalysisJobs,
   listStageChat as listApiStageChat,
@@ -40,11 +46,17 @@ import {
   invokeStageTool as invokeApiStageTool,
   preflightAnalysisRun,
   patchStageAssetSection as patchApiStageAssetSection,
+  patchEvidenceRecord as patchApiEvidenceRecord,
+  patchKnowledgeRecord as patchApiKnowledgeRecord,
   rerunAnalysis,
+  reviewLiteraturePlan as reviewApiLiteraturePlan,
+  reviewEvidenceCandidate as reviewApiEvidenceCandidate,
+  reviewKnowledgeCandidate as reviewApiKnowledgeCandidate,
   restoreStageRevision as restoreApiStageRevision,
   saveStage as saveApiStage,
   saveStageWorkspace as saveApiStageWorkspace,
   searchLiterature as searchApiLiterature,
+  selectProblemQuestion as selectApiProblemQuestion,
   sendStageChat as sendApiStageChat,
   submitAnalysisRun,
   submitKnowledgeEvaluation as submitApiKnowledgeEvaluation,
@@ -55,7 +67,12 @@ import {
   type AnalysisJob,
   type AnalysisRun,
   type ChatSearchMode,
+  type EvidenceCandidate,
+  type EvidenceLevel,
   type KnowledgeEvaluation,
+  type KnowledgeAssetKind,
+  type KnowledgeGovernanceCandidate,
+  type KnowledgeGovernanceRecord,
   type DiagnosticRule,
   type DeliveryExportRecord,
   type InterfaceTheme,
@@ -363,44 +380,125 @@ function assetVersionSnapshot(stage?: ApiProjectStage): AssetVersionSnapshot {
 
 function projectEvidenceRecords(project?: ApiProject): EvidenceRecord[] {
   const literature = project?.stages.find((stage) => stage.key === "literature");
-  const papers = Array.isArray(literature?.content.papers) ? literature.content.papers : [];
-  const streams = Array.isArray(literature?.content.research_streams)
-    ? literature.content.research_streams
+  const library = Array.isArray(literature?.content.evidence_library)
+    ? literature.content.evidence_library
     : [];
-  const streamByPaper = new Map<string, string>();
-  streams.forEach((raw) => {
-    const stream = asRecord(raw);
-    if (!stream) return;
-    const name = typeof stream.name === "string" ? stream.name : "未归类";
-    const paperIds = Array.isArray(stream.paper_ids) ? stream.paper_ids : [];
-    paperIds.forEach((paperId) => {
-      if (typeof paperId === "string") streamByPaper.set(paperId, name);
-    });
-  });
-  return papers.flatMap((raw): EvidenceRecord[] => {
-    const paper = asRecord(raw);
-    if (!paper || typeof paper.title !== "string") return [];
-    const id = typeof paper.paper_id === "string" ? paper.paper_id : paper.title;
-    const authors = Array.isArray(paper.authors)
-      ? paper.authors.filter((item): item is string => typeof item === "string").join(", ")
+  return library.flatMap((raw): EvidenceRecord[] => {
+    const record = asRecord(raw);
+    if (
+      !record
+      || record.status !== "active"
+      || typeof record.evidence_id !== "string"
+      || typeof record.title !== "string"
+    ) return [];
+    const authors = Array.isArray(record.authors)
+      ? record.authors.filter((item): item is string => typeof item === "string").join(", ")
       : "";
-    const sourceUrls = Array.isArray(paper.source_urls)
-      ? paper.source_urls.filter((item): item is string => typeof item === "string")
-      : [];
+    const evidenceLabels = {
+      metadata: "元数据",
+      abstract: "摘要级",
+      full_text: "全文级",
+      source_page: "来源页",
+    } as const;
+    const evidenceLevel = record.evidence_level === "abstract"
+      || record.evidence_level === "full_text"
+      || record.evidence_level === "source_page"
+      ? record.evidence_level
+      : "metadata";
     return [{
-      id,
-      title: paper.title,
+      id: record.evidence_id,
+      evidenceType: record.evidence_type === "data_study" ? "data_study" : "paper",
+      revision: typeof record.revision === "number" ? record.revision : 1,
+      contentHash: typeof record.content_hash === "string" ? record.content_hash : undefined,
+      title: record.title,
       authors,
-      year: typeof paper.year === "number" ? paper.year : Number(paper.year) || 0,
-      stream: streamByPaper.get(id) || (typeof paper.venue === "string" ? paper.venue : "未归类"),
-      method: typeof paper.method === "string" ? paper.method : "待人工提取",
-      status: typeof paper.abstract === "string" && paper.abstract.trim() ? "摘要级" : "元数据",
-      abstract: typeof paper.abstract === "string" ? paper.abstract : undefined,
-      venue: typeof paper.venue === "string" ? paper.venue : undefined,
-      doi: typeof paper.doi === "string" ? paper.doi : undefined,
-      sourceUrl: sourceUrls[0] || (typeof paper.source_url === "string" ? paper.source_url : undefined),
+      year: typeof record.year === "number" ? record.year : Number(record.year) || 0,
+      stream: typeof record.venue === "string" && record.venue
+        ? record.venue
+        : record.evidence_type === "data_study"
+          ? "数据研究"
+          : "未归类",
+      method: record.evidence_type === "data_study" ? "数据来源研究" : "待人工提取",
+      status: evidenceLabels[evidenceLevel],
+      abstract: typeof record.abstract === "string" ? record.abstract : undefined,
+      summary: typeof record.summary === "string" ? record.summary : undefined,
+      locator: typeof record.locator === "string" ? record.locator : undefined,
+      accessNotes: typeof record.access_notes === "string" ? record.access_notes : undefined,
+      venue: typeof record.venue === "string" ? record.venue : undefined,
+      doi: typeof record.doi === "string" ? record.doi : undefined,
+      sourceUrl: typeof record.url === "string" ? record.url : undefined,
+      evidenceLevel,
+      fullTextAvailable: evidenceLevel === "full_text",
+      approvedAt: typeof record.approved_at === "string" ? record.approved_at : undefined,
     }];
   });
+}
+
+function projectEvidenceCandidates(project?: ApiProject): EvidenceCandidate[] {
+  const literature = project?.stages.find((stage) => stage.key === "literature");
+  const candidates = Array.isArray(literature?.content.evidence_candidates)
+    ? literature.content.evidence_candidates
+    : [];
+  return candidates.flatMap((raw): EvidenceCandidate[] => {
+    const candidate = asRecord(raw);
+    if (
+      !candidate
+      || typeof candidate.candidate_id !== "string"
+      || typeof candidate.title !== "string"
+    ) return [];
+    return [candidate as unknown as EvidenceCandidate];
+  });
+}
+
+function textList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value !== "string") return [];
+  return value.split(/\r?\n|；|;/).map((item) => item.trim()).filter(Boolean);
+}
+
+function knowledgeMethodRecord(record: KnowledgeGovernanceRecord): MethodRecord {
+  const content = record.content;
+  return {
+    id: record.record_id,
+    name: String(content.name || record.record_id),
+    family: String(content.family || "人工方法"),
+    fit: null,
+    goal: String(content.goal || content.description || ""),
+    estimand: String(content.estimand || content.goal || "待在研究设计中确认"),
+    dataShape: String(content.data || content.data_shape || "待人工确认"),
+    formula: String(content.formula || content.latex || "关联公式见公式库"),
+    assumptions: textList(content.assumptions),
+    diagnostics: textList(content.diagnostics),
+    failureRule: String(content.failure || "未满足关键假设时退出主分析"),
+    engine: String(content.packages || "人工配置"),
+    stata: String(content.stata || ""),
+    python: String(content.python || ""),
+    tags: textList(content.tags),
+    source: Array.isArray(content.source_urls)
+      ? content.source_urls.map(String).join(" · ")
+      : "",
+  };
+}
+
+function knowledgeFormulaRecord(record: KnowledgeGovernanceRecord): FormulaRecord {
+  const content = record.content;
+  return {
+    id: record.record_id,
+    title: String(content.name || record.record_id),
+    family: String(content.category || "人工公式"),
+    methodId: String(content.method_id || ""),
+    formula: String(content.latex || content.formula || ""),
+    purpose: String(content.use_when || content.description || ""),
+    symbols: [],
+    assumptions: textList(content.assumptions),
+    diagnostics: textList(content.diagnostics),
+    stata: String(content.packages || content.stata || ""),
+    source: Array.isArray(content.source_urls)
+      ? content.source_urls.map(String).join(" · ")
+      : "",
+  };
 }
 
 function projectContext(project: ResearchProject): NonNullable<StageWorkspacePayload["project_context"]> {
@@ -657,13 +755,13 @@ function AgentChatDrawer({
             <div className="chat-messages" aria-live="polite">
               <article className="chat-message is-assistant">
                 <div className="message-role">{stage.agent}</div>
-                <p>连接模型后，我会读取当前阶段目标和交付要求。你可以让我解释、比较方案或形成一份可人工修改的草稿。</p>
+                <p className="message-content">连接模型后，我会读取当前阶段目标和交付要求。你可以让我解释、比较方案或形成一份可人工修改的草稿。</p>
               </article>
               {loading && <article className="chat-message is-assistant is-typing"><div className="message-role">{stage.agent}</div><p><span /><span /><span /> 正在读取历史记录</p></article>}
               {!loading && messages.map((message) => (
                 <article className={`chat-message is-${message.role}${message.error ? " is-error" : ""}`} key={message.id}>
                   <div className="message-role">{message.role === "user" ? "你" : stage.agent}<time>{message.time}</time></div>
-                  <p>{message.text}</p>
+                  <p className={message.role === "assistant" ? "message-content" : undefined}>{message.text}</p>
                   {message.role === "assistant" && message.citations && message.citations.length > 0 && (
                     <section className="message-sources" aria-label="本轮联网来源">
                       <div className="message-source-summary">
@@ -889,8 +987,26 @@ function AgentPanel({
   const workspace = remoteStage ? stageWorkspace(remoteStage.content) : undefined;
   const humanConfirmed = workspace?.human_confirmed === true;
   const canApprove = remoteStage?.readiness.can_submit === true;
+  const literatureQueries = Array.isArray(remoteStage?.content.query_blocks)
+    ? remoteStage.content.query_blocks
+    : [];
+  const literaturePapers = Array.isArray(remoteStage?.content.papers)
+    ? remoteStage.content.papers
+    : [];
+  const literatureDecisions = Array.isArray(remoteStage?.content.screening_decisions)
+    ? remoteStage.content.screening_decisions
+    : [];
+  const literatureReview = asRecord(remoteStage?.content.literature_plan_review);
   const generateLabel = stage.key === "literature"
-    ? "检索并生成综述"
+    ? literatureQueries.length === 0
+      ? "生成检索计划"
+      : literatureReview?.status !== "approved"
+        ? "等待人工批准计划"
+        : literaturePapers.length === 0
+          ? "执行文献检索"
+          : literatureDecisions.length < literaturePapers.length
+            ? "等待逐篇筛选"
+            : "生成证据综述"
     : stage.key === "delivery"
       ? "生成报告与研究包"
       : usesAO
@@ -1141,6 +1257,112 @@ function GenericStage({
   );
 }
 
+function ProblemQuestionControl({
+  stage,
+  busy,
+  onSelect,
+}: {
+  stage?: ApiProjectStage;
+  busy: boolean;
+  onSelect: (questionId: string, rationale: string) => Promise<void>;
+}) {
+  const candidates = Array.isArray(stage?.content.question_candidates)
+    ? stage.content.question_candidates.flatMap((raw) => {
+        const item = asRecord(raw);
+        return item && typeof item.question_id === "string" && typeof item.statement === "string"
+          ? [{
+              id: item.question_id,
+              statement: item.statement,
+              type: typeof item.question_type === "string" ? item.question_type : "待判断",
+              decision: typeof item.management_decision === "string" ? item.management_decision : "待补充",
+              feasibility: typeof item.feasibility_status === "string" ? item.feasibility_status : "unknown",
+            }]
+          : [];
+      })
+    : [];
+  const selection = asRecord(stage?.content.question_selection);
+  const savedQuestionId = typeof selection?.selected_question_id === "string"
+    ? selection.selected_question_id
+    : "";
+  const [selectedId, setSelectedId] = useState(savedQuestionId || candidates[0]?.id || "");
+  const [rationale, setRationale] = useState(
+    typeof selection?.rationale === "string" ? selection.rationale : "",
+  );
+  if (!stage || candidates.length === 0) {
+    return (
+      <section className="research-control-card is-waiting">
+        <header><div><p className="eyebrow">Human control · G0</p><h2>候选研究问题尚未生成</h2></div><span>等待 Topic Agent</span></header>
+        <p>先生成 S0 正式资产；智能体会给出多个可证伪候选，但不会代替研究者选择。</p>
+      </section>
+    );
+  }
+  return (
+    <section className="research-control-card">
+      <header><div><p className="eyebrow">Human control · G0</p><h2>人工选择核心研究问题</h2></div><span>{savedQuestionId ? `已选择 ${savedQuestionId}` : "G0 前置"}</span></header>
+      <div className="question-candidate-list">
+        {candidates.map((candidate) => (
+          <label className={selectedId === candidate.id ? "is-selected" : ""} key={candidate.id}>
+            <input type="radio" name="research-question-candidate" checked={selectedId === candidate.id} onChange={() => setSelectedId(candidate.id)} />
+            <span>{candidate.id}</span>
+            <div><strong>{candidate.statement}</strong><small>{candidate.type} · {candidate.feasibility} · 管理决定：{candidate.decision}</small></div>
+          </label>
+        ))}
+      </div>
+      <div className="research-control-actions">
+        <label><span>选择理由</span><textarea rows={3} value={rationale} onChange={(event) => setRationale(event.target.value)} placeholder="说明边界、理论价值、数据可行性与未采用候选的主要取舍。" /></label>
+        <button className="primary-action" disabled={busy || !selectedId || rationale.trim().length < 3} onClick={() => void onSelect(selectedId, rationale.trim())}>{busy ? "正在保存…" : "保存人工选择到 revision"}</button>
+      </div>
+    </section>
+  );
+}
+
+function LiteraturePlanControl({
+  stage,
+  busy,
+  onReview,
+}: {
+  stage?: ApiProjectStage;
+  busy: boolean;
+  onReview: (decision: "approve" | "request_changes", reason: string) => Promise<void>;
+}) {
+  const queryBlocks = Array.isArray(stage?.content.query_blocks)
+    ? stage.content.query_blocks.flatMap((raw) => {
+        const item = asRecord(raw);
+        const query = typeof item?.query_en === "string"
+          ? item.query_en
+          : typeof item?.query_zh === "string"
+            ? item.query_zh
+            : "";
+        return query
+          ? [{ label: typeof item?.label === "string" ? item.label : "查询块", query }]
+          : [];
+      })
+    : [];
+  const review = asRecord(stage?.content.literature_plan_review);
+  const status = typeof review?.status === "string" ? review.status : "pending";
+  const [reason, setReason] = useState(
+    typeof review?.reason === "string"
+      ? review.reason
+      : "已核对检索主题、数据库、时间范围、纳排标准、反向检索与覆盖限制。",
+  );
+  return (
+    <section className={`research-control-card literature-plan-control status-${status}`}>
+      <header><div><p className="eyebrow">Human control · Search protocol</p><h2>检索计划人工审阅</h2></div><span>{status === "approved" ? "已批准当前计划" : status === "changes_requested" ? "已退回修改" : "检索前置"}</span></header>
+      {queryBlocks.length ? (
+        <>
+          <div className="query-plan-preview">
+            {queryBlocks.slice(0, 4).map((block, index) => <article key={`${block.label}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{block.label}</strong><code>{block.query}</code></div></article>)}
+          </div>
+          <div className="research-control-actions">
+            <label><span>审阅理由 / 修改要求</span><textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></label>
+            <div><button disabled={busy || reason.trim().length < 3} onClick={() => void onReview("request_changes", reason.trim())}>退回修改</button><button className="primary-action" disabled={busy || reason.trim().length < 3} onClick={() => void onReview("approve", reason.trim())}>{busy ? "正在保存…" : "批准当前检索计划"}</button></div>
+          </div>
+        </>
+      ) : <p>先让 Literature Agent 生成经典、近期、相邻、反向和争议查询族；未获人工批准时平台不会自动执行模型检索计划。</p>}
+    </section>
+  );
+}
+
 function DeliveryCenter({
   projectId,
   remoteStage,
@@ -1247,23 +1469,38 @@ function DeliveryCenter({
 
 function EvidenceLibrary({
   records,
+  candidates,
   searchRuns,
   busy,
   onOpenRecord,
   onSearch,
+  onReview,
   onToast,
 }: {
   records: EvidenceRecord[];
+  candidates: EvidenceCandidate[];
   searchRuns: number;
   busy: boolean;
-  onOpenRecord: (title: string) => void;
-  onSearch: (query: string) => Promise<void>;
+  onOpenRecord: (evidenceId: string) => void;
+  onSearch: (
+    query: string,
+    candidateType: "literature" | "data_study",
+  ) => Promise<void>;
+  onReview: (
+    candidate: EvidenceCandidate,
+    decision: "approve" | "reject" | "request_changes",
+    reason: string,
+    evidenceLevel: EvidenceLevel,
+    edits: Record<string, unknown>,
+  ) => Promise<void>;
   onToast: (message: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("全部");
   const [searchOpen, setSearchOpen] = useState(false);
   const [draftQuery, setDraftQuery] = useState("");
+  const [candidateType, setCandidateType] = useState<"literature" | "data_study">("literature");
+  const [queueOpen, setQueueOpen] = useState(true);
   const filtered = records.filter((item) => {
     const haystack = `${item.title} ${item.authors} ${item.stream} ${item.method}`.toLowerCase();
     const queryTerms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -1272,15 +1509,27 @@ function EvidenceLibrary({
     return matchesQuery && matchesFilter;
   });
   const streams = ["全部", ...Array.from(new Set(records.map((item) => item.stream)))];
-  const verified = records.filter((item) => item.status === "已核验").length;
+  const pending = candidates.filter((item) => item.status === "pending" || item.status === "changes_requested");
+  const approvedCandidates = candidates.filter((item) => item.status === "approved").length;
+  const verified = records.filter((item) => item.evidenceLevel === "full_text" || item.evidenceLevel === "source_page").length;
   return (
     <div className="library-view page-view">
-      <header className="view-header"><div><p className="eyebrow">Evidence Library</p><h1>证据库</h1><p>检索、筛选并核查每一条进入研究结论的文献与运行证据。</p></div><button className="primary-compact" onClick={() => setSearchOpen((open) => !open)}>＋ 新建检索</button></header>
+      <header className="view-header"><div><p className="eyebrow">Evidence governance · candidate → human review → authority</p><h1>证据库</h1><p>智能体找到的文献与数据研究先进入候选队列；只有人工批准的版本才可被论文引用。</p></div><button className="primary-compact" onClick={() => setSearchOpen((open) => !open)}>＋ 智能体联网发现</button></header>
       <div className="metric-strip">
-        <div><strong>{records.length}</strong><span>当前项目证据</span></div><div><strong>{searchRuns}</strong><span>已保存检索批次</span></div><div><strong>{Math.max(0, streams.length - 1)}</strong><span>研究流派</span></div><div><strong>{verified}</strong><span>全文已核验</span></div>
+        <div><strong>{pending.length}</strong><span>等待人工处理</span></div><div><strong>{records.length}</strong><span>权威证据记录</span></div><div><strong>{searchRuns}</strong><span>已保存检索批次</span></div><div><strong>{verified}</strong><span>全文 / 来源页核验</span></div>
       </div>
-      {searchOpen && <section className="search-composer" aria-label="新建文献检索"><div><p className="eyebrow">New search</p><h2>创建可复核检索</h2><p>输入主题、变量或方法；检索结果和来源批次会保存到 S1 阶段资产。</p></div><label><span>检索问题</span><input value={draftQuery} onChange={(event) => setDraftQuery(event.target.value)} placeholder="例如：生成式 AI 企业创新 双重差分" autoFocus /></label><label><span>来源范围</span><select defaultValue="all" disabled><option value="all">OpenAlex / Crossref / Semantic Scholar / arXiv</option></select></label><div><button onClick={() => setSearchOpen(false)} disabled={busy}>取消</button><button className="primary-action" disabled={busy} onClick={() => { const nextQuery = draftQuery.trim(); if (!nextQuery) { onToast("请先输入检索问题"); return; } void onSearch(nextQuery).then(() => { setQuery(nextQuery); setSearchOpen(false); }); }}>{busy ? "检索中…" : "运行检索"}</button></div></section>}
+      {searchOpen && <section className="search-composer evidence-search-composer" aria-label="新建证据发现任务"><div><p className="eyebrow">Agent discovery</p><h2>创建可复核候选发现任务</h2><p>搜索结果不会直接进入权威库。来源、查询、快照和 AI 报告会随候选保存，等待人工审阅。</p></div><label><span>候选类型</span><select value={candidateType} onChange={(event) => setCandidateType(event.target.value as "literature" | "data_study")}><option value="literature">学术文献</option><option value="data_study">数据来源与数据研究</option></select></label><label><span>检索问题</span><input value={draftQuery} onChange={(event) => setDraftQuery(event.target.value)} placeholder={candidateType === "literature" ? "例如：生成式 AI 企业创新 双重差分" : "例如：中国企业数字化转型 面板数据 官方来源"} autoFocus /></label><div><button onClick={() => setSearchOpen(false)} disabled={busy}>取消</button><button className="primary-action" disabled={busy} onClick={() => { const nextQuery = draftQuery.trim(); if (nextQuery.length < 3) { onToast("检索问题至少需要 3 个字符"); return; } void onSearch(nextQuery, candidateType).then(() => { setSearchOpen(false); setQueueOpen(true); }); }}>{busy ? "发现中…" : "联网发现候选"}</button></div></section>}
+
+      <section className="evidence-governance-panel">
+        <header><div><p className="eyebrow">Human review queue</p><h2>候选审核队列</h2><p>批准前可修改题名、作者 / 机构、年份、来源与摘要；每次决定都会生成新的 S1 revision。</p></div><div><span>{pending.length} 待处理 · {approvedCandidates} 已批准 · {candidates.length - pending.length - approvedCandidates} 已拒绝</span><button onClick={() => setQueueOpen((open) => !open)}>{queueOpen ? "收起队列" : "展开队列"}</button></div></header>
+        {queueOpen && <div className="evidence-candidate-list">
+          {pending.map((candidate) => <EvidenceCandidateReviewCard key={`${candidate.candidate_id}:${candidate.revision}`} candidate={candidate} busy={busy} onReview={onReview} />)}
+          {pending.length === 0 && <div className="empty-state">{candidates.length ? "所有当前候选均已处理。新的联网发现结果会先进入这里。" : "尚无候选。运行一次“智能体联网发现”，再由研究者逐条审核。"}</div>}
+        </div>}
+      </section>
+
       <section className="content-card library-panel">
+        <header className="authority-library-heading"><div><p className="eyebrow">Authoritative evidence</p><h2>已批准证据</h2><p>论文参考文献、主张与 AI 报告只链接这里的 `EVLIB_*` 记录。</p></div><span>{records.length} 条 active authority</span></header>
         <div className="library-tools">
           <label className="search-field"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索题名、作者、方法或流派" aria-label="搜索证据库" /></label>
           <div className="filter-chips" aria-label="研究流派筛选">
@@ -1288,19 +1537,75 @@ function EvidenceLibrary({
           </div>
         </div>
         <div className="library-table-wrap">
-          <table className="library-table"><thead><tr><th>论文</th><th>研究流派</th><th>年份</th><th>方法</th><th>证据等级</th><th /></tr></thead><tbody>
-            {filtered.map((item) => <tr key={item.title}><td><strong>{item.title}</strong><span>{item.authors}</span></td><td>{item.stream}</td><td>{item.year}</td><td>{item.method}</td><td><span className={`source-level ${item.status === "已核验" ? "verified" : ""}`}>{item.status}</span></td><td><button className="row-action" onClick={() => onOpenRecord(item.title)}>打开论文卡</button></td></tr>)}
+          <table className="library-table"><thead><tr><th>权威记录</th><th>类型 / 来源</th><th>年份</th><th>版本</th><th>证据等级</th><th /></tr></thead><tbody>
+            {filtered.map((item) => <tr key={item.id}><td><strong>{item.title}</strong><span>{item.id} · {item.authors || "作者 / 机构待补充"}</span></td><td>{item.evidenceType === "data_study" ? "数据研究" : "学术文献"}<br /><small>{item.stream}</small></td><td>{item.year || "待核验"}</td><td>Revision {item.revision ?? 1}</td><td><span className={`source-level ${item.evidenceLevel === "full_text" || item.evidenceLevel === "source_page" ? "verified" : ""}`}>{item.status}</span></td><td><button className="row-action" onClick={() => onOpenRecord(item.id)}>打开并编辑</button></td></tr>)}
           </tbody></table>
-          {filtered.length === 0 && <div className="empty-state">{records.length === 0 ? "当前项目证据库为空。执行第一次文献检索后，返回的论文元数据才会进入这里。" : "没有匹配的证据，试试调整关键词或流派。"}</div>}
+          {filtered.length === 0 && <div className="empty-state">{records.length === 0 ? "权威证据库为空。候选必须先经过人工批准，才会出现在这里并允许进入参考文献。" : "没有匹配的证据，试试调整关键词或流派。"}</div>}
         </div>
       </section>
     </div>
   );
 }
 
+function EvidenceCandidateReviewCard({
+  candidate,
+  busy,
+  onReview,
+}: {
+  candidate: EvidenceCandidate;
+  busy: boolean;
+  onReview: (
+    candidate: EvidenceCandidate,
+    decision: "approve" | "reject" | "request_changes",
+    reason: string,
+    evidenceLevel: EvidenceLevel,
+    edits: Record<string, unknown>,
+  ) => Promise<void>;
+}) {
+  const [title, setTitle] = useState(candidate.title);
+  const [authors, setAuthors] = useState(candidate.authors.join("；"));
+  const [year, setYear] = useState(candidate.year ? String(candidate.year) : "");
+  const [venue, setVenue] = useState(candidate.venue);
+  const [url, setUrl] = useState(candidate.url);
+  const [abstract, setAbstract] = useState(candidate.abstract || candidate.summary || "");
+  const [reason, setReason] = useState(candidate.review?.reason ?? "已核对来源相关性、稳定链接与当前可用证据等级。");
+  const [evidenceLevel, setEvidenceLevel] = useState<EvidenceLevel>(
+    candidate.candidate_type === "data_study"
+      ? "source_page"
+      : candidate.abstract
+        ? "abstract"
+        : "metadata",
+  );
+  const edits = {
+    title: title.trim(),
+    authors: authors.split(/；|;|\n/).map((item) => item.trim()).filter(Boolean),
+    year: year.trim() ? Number(year) : null,
+    venue: venue.trim(),
+    url: url.trim(),
+    abstract: abstract.trim(),
+  };
+  const canSubmit = reason.trim().length >= 3 && title.trim().length > 0 && /^https?:\/\//.test(url.trim());
+  return <article className="evidence-candidate-card">
+    <header><div><span>{candidate.candidate_type === "literature" ? "文献候选" : "数据研究候选"}</span><strong>{candidate.candidate_id}</strong></div><small>{candidate.status === "changes_requested" ? "已退回，等待再次审阅" : "等待首次人工审阅"} · Revision {candidate.revision}</small></header>
+    <div className="candidate-edit-grid">
+      <label className="wide"><span>题名 / 数据研究名称</span><input value={title} onChange={(event) => setTitle(event.target.value)} /></label>
+      <label><span>作者 / 机构（分号分隔）</span><input value={authors} onChange={(event) => setAuthors(event.target.value)} /></label>
+      <label><span>年份</span><input inputMode="numeric" value={year} onChange={(event) => setYear(event.target.value.replace(/[^\d]/g, "").slice(0, 4))} /></label>
+      <label><span>期刊 / 数据机构</span><input value={venue} onChange={(event) => setVenue(event.target.value)} /></label>
+      <label className="wide"><span>稳定来源链接</span><input value={url} onChange={(event) => setUrl(event.target.value)} /></label>
+      <label className="wide"><span>摘要 / 来源页证据概括</span><textarea rows={4} value={abstract} onChange={(event) => setAbstract(event.target.value)} /></label>
+      <label><span>当前证据等级</span><select value={evidenceLevel} onChange={(event) => setEvidenceLevel(event.target.value as EvidenceLevel)}><option value="metadata">仅元数据</option><option value="abstract">已核验摘要</option><option value="full_text">已核验全文</option><option value="source_page">已核验来源页</option></select></label>
+      <label className="wide"><span>人工决定理由</span><textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></label>
+    </div>
+    <footer><a href={candidate.url} target="_blank" rel="noreferrer">核对原始来源 ↗</a><div><button disabled={busy || reason.trim().length < 3} onClick={() => void onReview(candidate, "reject", reason.trim(), evidenceLevel, edits)}>拒绝</button><button disabled={busy || reason.trim().length < 3} onClick={() => void onReview(candidate, "request_changes", reason.trim(), evidenceLevel, edits)}>退回补充</button><button className="primary-action" disabled={busy || !canSubmit} onClick={() => void onReview(candidate, "approve", reason.trim(), evidenceLevel, edits)}>{busy ? "保存中…" : "批准进入证据库"}</button></div></footer>
+  </article>;
+}
+
 function MethodsView({
   methods,
   formulas,
+  governanceCandidates,
+  governanceRecords,
   diagnosticRules,
   diagnosticRegistryVersion,
   evaluation,
@@ -1309,10 +1614,16 @@ function MethodsView({
   onOpenMethod,
   onOpenFormula,
   onAdd,
+  onDiscover,
+  onReviewCandidate,
+  onCreateRecord,
+  onPatchRecord,
   onToast,
 }: {
   methods: MethodRecord[];
   formulas: FormulaRecord[];
+  governanceCandidates: KnowledgeGovernanceCandidate[];
+  governanceRecords: KnowledgeGovernanceRecord[];
   diagnosticRules: DiagnosticRule[];
   diagnosticRegistryVersion: string;
   evaluation?: KnowledgeEvaluation;
@@ -1321,9 +1632,26 @@ function MethodsView({
   onOpenMethod: (methodId: string) => void;
   onOpenFormula: (formulaId: string) => void;
   onAdd: (methodId: string) => void;
+  onDiscover: (kind: KnowledgeAssetKind, query: string) => Promise<void>;
+  onReviewCandidate: (
+    candidate: KnowledgeGovernanceCandidate,
+    decision: "approve" | "reject" | "request_changes",
+    reason: string,
+    content: Record<string, unknown>,
+  ) => Promise<void>;
+  onCreateRecord: (
+    kind: KnowledgeAssetKind,
+    content: Record<string, unknown>,
+    reason: string,
+  ) => Promise<KnowledgeGovernanceRecord | null>;
+  onPatchRecord: (
+    record: KnowledgeGovernanceRecord,
+    content: Record<string, unknown>,
+    reason: string,
+  ) => Promise<void>;
   onToast: (message: string) => void;
 }) {
-  const [tab, setTab] = useState<"methods" | "formulas" | "diagnostics" | "design">("methods");
+  const [tab, setTab] = useState<"methods" | "formulas" | "diagnostics" | "governance" | "design">("methods");
   const [selected, setSelected] = useState(methods[0].id);
   const [query, setQuery] = useState("");
   const [family, setFamily] = useState("全部");
@@ -1338,8 +1666,8 @@ function MethodsView({
   const changeTab = (next: typeof tab) => { setTab(next); setQuery(""); setFamily("全部"); };
   return <div className="methods-view page-view method-studio">
     <header className="view-header method-studio-header"><div><p className="eyebrow">Method & Formula Studio · versioned registry</p><h1>方法与公式库</h1><p>从研究目标和数据结构出发，连接公式、假设、诊断、代码与人工选择记录。</p><small>{evaluation?.status === "current" ? `${evaluation.model} · ${new Date(evaluation.evaluated_at).toLocaleString("zh-CN")}` : evaluation?.status === "stale" ? "研究上下文已变化，原 AI 评分已过期" : "尚未针对当前项目运行 AI 适配评估"}</small></div><div className="studio-metrics"><div><strong>{methods.length}</strong><span>核心方法</span></div><div><strong>{formulas.length}</strong><span>公式模板</span></div><div><strong>{diagnosticRules.length}</strong><span>诊断规则</span></div><button className="primary-compact" disabled={busy} onClick={() => void onEvaluate()}>{busy ? "AI 评估中…" : "AI 评估当前课题"}</button></div></header>
-    <nav className="studio-tabs" aria-label="方法工作台分区">{[["methods", "方法库"], ["formulas", "公式库"], ["diagnostics", "诊断规则"], ["design", "当前研究设计"]].map(([key, label]) => <button className={tab === key ? "is-active" : ""} onClick={() => changeTab(key as typeof tab)} key={key}>{label}<span>{key === "methods" ? methods.length : key === "formulas" ? formulas.length : key === "diagnostics" ? diagnosticRules.length : compare.length}</span></button>)}</nav>
-    <section className="studio-toolbar"><label className="search-field"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tab === "diagnostics" ? "搜索规则、适用方法、触发条件或 Stata 命令" : "搜索目标、方法、公式、诊断或标签"} aria-label="搜索方法、公式与诊断规则" /></label><select value={family} onChange={(event) => setFamily(event.target.value)} aria-label="筛选知识家族">{families.map((item) => <option key={item}>{item}</option>)}</select><button onClick={() => { setQuery(""); setFamily("全部"); }}>清除筛选</button></section>
+    <nav className="studio-tabs" aria-label="方法工作台分区">{[["methods", "方法库"], ["formulas", "公式库"], ["diagnostics", "诊断规则"], ["governance", "联网与审核"], ["design", "当前研究设计"]].map(([key, label]) => <button className={tab === key ? "is-active" : ""} onClick={() => changeTab(key as typeof tab)} key={key}>{label}<span>{key === "methods" ? methods.length : key === "formulas" ? formulas.length : key === "diagnostics" ? diagnosticRules.length : key === "governance" ? governanceCandidates.filter((item) => item.status === "pending" || item.status === "changes_requested").length : compare.length}</span></button>)}</nav>
+    {tab !== "governance" && <section className="studio-toolbar"><label className="search-field"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tab === "diagnostics" ? "搜索规则、适用方法、触发条件或 Stata 命令" : "搜索目标、方法、公式、诊断或标签"} aria-label="搜索方法、公式与诊断规则" /></label><select value={family} onChange={(event) => setFamily(event.target.value)} aria-label="筛选知识家族">{families.map((item) => <option key={item}>{item}</option>)}</select><button onClick={() => { setQuery(""); setFamily("全部"); }}>清除筛选</button></section>}
 
     {tab === "methods" && <div className="method-library-shell"><section className="method-library-list" aria-label="候选方法">{filteredMethods.map((method) => <article className={`method-library-row ${selected === method.id ? "is-selected" : ""}`} key={method.id}><button className="method-row-main" onClick={() => setSelected(method.id)}><span className="method-code">{method.id}</span><div><div><b>{method.family}</b><small>{method.dataShape}</small></div><h2>{method.name}</h2><p>{method.goal}</p><div className="method-tag-row">{method.tags.slice(0, 3).map((tag) => <span key={tag}>{tag}</span>)}</div></div><strong className="method-row-fit">{method.fit === null ? "待评估" : <>{method.fit}<small>%</small></>}</strong></button><div className="method-row-actions"><button className={compare.includes(method.id) ? "is-active" : ""} onClick={() => toggleCompare(method.id)}>{compare.includes(method.id) ? "已加入比较" : "加入比较"}</button><button onClick={() => onOpenMethod(method.id)}>完整方法卡 →</button></div></article>)}{filteredMethods.length === 0 && <div className="empty-state">没有匹配的方法，请调整关键词或方法家族。</div>}</section><aside className="method-detail method-studio-detail"><p className="eyebrow">Selected method</p><div className="selected-method-title"><div><span>{activeMethod.id}</span><h2>{activeMethod.name}</h2></div><strong>{activeMethod.fit === null ? "待 AI 评估" : `${activeMethod.fit}%`}</strong></div><pre>{activeMethod.formula}</pre>{activeMethod.fitRationale && <p>{activeMethod.fitRationale}</p>}<dl><div><dt>目标</dt><dd>{activeMethod.estimand}</dd></div><div><dt>数据</dt><dd>{activeMethod.dataShape}</dd></div><div><dt>实现</dt><dd>{activeMethod.engine}</dd></div></dl><h3>关键假设</h3><ul>{activeMethod.assumptions.map((item) => <li key={item}><span>!</span>{item}</li>)}</ul><div className="method-warning"><strong>失败规则</strong><p>{activeMethod.failureRule}</p></div><div className="method-detail-actions"><button onClick={() => onOpenMethod(activeMethod.id)}>审阅完整方法卡</button><button className="primary-action" onClick={() => onAdd(activeMethod.id)}>加入研究设计</button></div></aside></div>}
 
@@ -1347,8 +1675,198 @@ function MethodsView({
 
     {tab === "diagnostics" && <section className="diagnostic-registry"><header><div><p className="eyebrow">Diagnostic policy registry · {diagnosticRegistryVersion || "正在加载后端注册表"}</p><h2>诊断不是附录，是方法的退出条件</h2><p>规则由后端权威注册表提供；每条都包含适用方法、触发时点、所需证据、失败动作和实现提示。</p></div><div><span>当前显示 <strong>{filteredDiagnostics.length}</strong> / {diagnosticRules.length}</span><button disabled={!filteredDiagnostics.length} onClick={() => onToast(`已在当前页选中 ${filteredDiagnostics.length} 条候选规则；请到 S5 草稿保存正式 revision`)}>标记当前结果</button></div></header><div className="diagnostic-rule-grid">{filteredDiagnostics.map((rule) => { const expanded = expandedDiagnostic === rule.id; return <article className={`diagnostic-rule-card level-${rule.level} ${expanded ? "is-expanded" : ""}`} key={rule.id}><header><span>{rule.id}</span><b>{rule.level}</b><small>{rule.stage}</small></header><div className="diagnostic-rule-family">{rule.family}</div><h3>{rule.name}</h3><p>{rule.appliesTo}</p><dl><div><dt>触发</dt><dd>{rule.trigger}</dd></div>{expanded && <><div><dt>证据</dt><dd>{rule.evidence}</dd></div><div><dt>失败动作</dt><dd>{rule.action}</dd></div></>}</dl>{expanded && <div className="diagnostic-implementation"><span>实现提示</span><code>{rule.implementation}</code></div>}<footer><button onClick={() => onToast(`${rule.id} ${rule.name} 仅标记为候选；尚未写入后端分析计划`)}>标记候选</button><button className="primary-action" onClick={() => setExpandedDiagnostic(expanded ? null : rule.id)}>{expanded ? "收起规则" : "查看完整规则"}</button></footer></article>; })}{filteredDiagnostics.length === 0 && <div className="empty-state">{diagnosticRules.length === 0 ? "正在连接后端诊断注册表；加载失败时请检查 FastAPI 服务。" : "没有匹配的诊断规则，请清除筛选或更换关键词。"}</div>}</div></section>}
 
+    {tab === "governance" && <KnowledgeGovernancePanel candidates={governanceCandidates} records={governanceRecords} busy={busy} onDiscover={onDiscover} onReviewCandidate={onReviewCandidate} onCreateRecord={onCreateRecord} onPatchRecord={onPatchRecord} />}
+
     {tab === "design" && <section className="current-design-board"><header><div><p className="eyebrow">Research design bundle</p><h2>当前候选方法比较</h2><p>最多同时比较 3 个候选；确定主模型前必须记录未采用理由。</p></div><button className="primary-action" disabled={!compare.length} onClick={() => { if (compare[0]) onAdd(compare[0]); }}>将首项设为主方案草稿</button></header><div className="design-compare-grid">{compare.map((methodId, index) => { const method = methods.find((item) => item.id === methodId); if (!method) return null; return <article key={method.id}><div><span>{index === 0 ? "PRIMARY CANDIDATE" : `ALTERNATIVE ${index}`}</span><button onClick={() => toggleCompare(method.id)}>移除</button></div><h2>{method.name}</h2><pre>{method.formula}</pre><dl><div><dt>估计 / 决策目标</dt><dd>{method.estimand}</dd></div><div><dt>数据结构</dt><dd>{method.dataShape}</dd></div><div><dt>失败规则</dt><dd>{method.failureRule}</dd></div></dl><button onClick={() => onOpenMethod(method.id)}>打开方法卡核对</button></article>; })}{!compare.length && <div className="empty-state">从“方法库”加入 1–3 个候选方法进行比较。</div>}</div></section>}
   </div>;
+}
+
+const knowledgeFieldDefinitions = {
+  method: [
+    ["name", "方法名称"],
+    ["family", "方法家族"],
+    ["goal", "研究目标 / estimand"],
+    ["data", "适用数据结构"],
+    ["assumptions", "关键假设"],
+    ["workflow", "标准流程"],
+    ["diagnostics", "必须诊断"],
+    ["robustness", "稳健性要求"],
+    ["packages", "Stata / Python / Solver 包"],
+    ["failure", "失败与退出规则"],
+    ["source_urls", "原始来源链接"],
+  ],
+  formula: [
+    ["name", "公式名称"],
+    ["category", "公式类别"],
+    ["latex", "LaTeX / 纯文本公式"],
+    ["use_when", "适用条件"],
+    ["notation", "符号定义"],
+    ["assumptions", "关键假设"],
+    ["diagnostics", "关联诊断"],
+    ["packages", "实现命令 / 软件包"],
+    ["warning", "误用警告"],
+    ["source_urls", "原始来源链接"],
+  ],
+} as const;
+
+function editableKnowledgeValue(value: unknown): string {
+  if (Array.isArray(value)) return value.map(String).join("\n");
+  return value === null || value === undefined ? "" : String(value);
+}
+
+function KnowledgeContentEditor({
+  kind,
+  content,
+  onChange,
+}: {
+  kind: KnowledgeAssetKind;
+  content: Record<string, unknown>;
+  onChange: (content: Record<string, unknown>) => void;
+}) {
+  const update = (key: string, raw: string) => {
+    const value = key === "source_urls"
+      ? raw.split(/\r?\n|；|;/).map((item) => item.trim()).filter(Boolean)
+      : raw;
+    onChange({ ...content, [key]: value });
+  };
+  return <div className="knowledge-content-editor">
+    {knowledgeFieldDefinitions[kind].map(([key, label]) => {
+      const multiline = ["goal", "assumptions", "workflow", "diagnostics", "robustness", "failure", "latex", "use_when", "notation", "warning", "source_urls"].includes(key);
+      return <label className={multiline ? "is-wide" : ""} key={key}><span>{label}</span>{multiline
+        ? <textarea rows={key === "latex" ? 3 : 4} value={editableKnowledgeValue(content[key])} onChange={(event) => update(key, event.target.value)} />
+        : <input value={editableKnowledgeValue(content[key])} onChange={(event) => update(key, event.target.value)} />}</label>;
+    })}
+  </div>;
+}
+
+function KnowledgeCandidateReviewCard({
+  candidate,
+  busy,
+  onReview,
+}: {
+  candidate: KnowledgeGovernanceCandidate;
+  busy: boolean;
+  onReview: (
+    candidate: KnowledgeGovernanceCandidate,
+    decision: "approve" | "reject" | "request_changes",
+    reason: string,
+    content: Record<string, unknown>,
+  ) => Promise<void>;
+}) {
+  const [content, setContent] = useState(candidate.proposed_content);
+  const [reason, setReason] = useState(candidate.review?.reason ?? "已对照原始来源核定方法 / 公式定义、适用条件、假设、诊断与失败规则。");
+  const sourceUrl = candidate.source_links.find((item) => item.url)?.url;
+  return <article className="knowledge-review-card">
+    <header><div><span>{candidate.kind === "method" ? "方法候选" : "公式候选"}</span><strong>{candidate.candidate_id}</strong></div><small>Revision {candidate.revision} · {candidate.status === "changes_requested" ? "退回后再审" : "等待人工审核"}</small></header>
+    <KnowledgeContentEditor kind={candidate.kind} content={content} onChange={setContent} />
+    <label className="knowledge-review-reason"><span>人工审核理由</span><textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></label>
+    <footer>{sourceUrl ? <a href={sourceUrl} target="_blank" rel="noreferrer">核对原始来源 ↗</a> : <span>缺少可打开来源，不能批准</span>}<div><button disabled={busy || reason.trim().length < 3} onClick={() => void onReview(candidate, "reject", reason.trim(), content)}>拒绝</button><button disabled={busy || reason.trim().length < 3} onClick={() => void onReview(candidate, "request_changes", reason.trim(), content)}>退回补全</button><button className="primary-action" disabled={busy || reason.trim().length < 3 || !sourceUrl} onClick={() => void onReview(candidate, "approve", reason.trim(), content)}>{busy ? "保存中…" : "批准入库"}</button></div></footer>
+  </article>;
+}
+
+function KnowledgeRecordEditor({
+  record,
+  busy,
+  onPatch,
+}: {
+  record: KnowledgeGovernanceRecord;
+  busy: boolean;
+  onPatch: (
+    record: KnowledgeGovernanceRecord,
+    content: Record<string, unknown>,
+    reason: string,
+  ) => Promise<void>;
+}) {
+  const [content, setContent] = useState(record.content);
+  const [reason, setReason] = useState("人工修订权威知识记录");
+  return <section className="knowledge-record-editor">
+    <header><div><p className="eyebrow">Authority editor</p><h3>{String(content.name || record.record_id)}</h3></div><span>{record.record_id} · Revision {record.revision}</span></header>
+    <KnowledgeContentEditor kind={record.kind} content={content} onChange={setContent} />
+    <label className="knowledge-review-reason"><span>修改理由（写入版本历史）</span><textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></label>
+    <footer><small>{record.content_hash.slice(0, 16)}… · {new Date(record.updated_at).toLocaleString("zh-CN")}</small><button className="primary-action" disabled={busy || reason.trim().length < 3} onClick={() => void onPatch(record, content, reason.trim())}>{busy ? "保存中…" : "保存新 Revision"}</button></footer>
+  </section>;
+}
+
+function KnowledgeGovernancePanel({
+  candidates,
+  records,
+  busy,
+  onDiscover,
+  onReviewCandidate,
+  onCreateRecord,
+  onPatchRecord,
+}: {
+  candidates: KnowledgeGovernanceCandidate[];
+  records: KnowledgeGovernanceRecord[];
+  busy: boolean;
+  onDiscover: (kind: KnowledgeAssetKind, query: string) => Promise<void>;
+  onReviewCandidate: (
+    candidate: KnowledgeGovernanceCandidate,
+    decision: "approve" | "reject" | "request_changes",
+    reason: string,
+    content: Record<string, unknown>,
+  ) => Promise<void>;
+  onCreateRecord: (
+    kind: KnowledgeAssetKind,
+    content: Record<string, unknown>,
+    reason: string,
+  ) => Promise<KnowledgeGovernanceRecord | null>;
+  onPatchRecord: (
+    record: KnowledgeGovernanceRecord,
+    content: Record<string, unknown>,
+    reason: string,
+  ) => Promise<void>;
+}) {
+  const [kind, setKind] = useState<KnowledgeAssetKind>("method");
+  const [query, setQuery] = useState("");
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualReason, setManualReason] = useState("研究者人工创建并核验知识记录");
+  const [manualContent, setManualContent] = useState<Record<string, unknown>>({
+    name: "",
+    family: "",
+    goal: "",
+    data: "",
+    assumptions: "",
+    workflow: "",
+    diagnostics: "",
+    robustness: "",
+    packages: "",
+    failure: "",
+    source_urls: [],
+  });
+  const [selectedRecordId, setSelectedRecordId] = useState("");
+  const pending = candidates.filter((item) => item.status === "pending" || item.status === "changes_requested");
+  const selectedRecord = records.find((item) => item.record_id === selectedRecordId) ?? records[0];
+  const changeKind = (next: KnowledgeAssetKind) => {
+    setKind(next);
+    setManualContent(next === "method" ? {
+      name: "", family: "", goal: "", data: "", assumptions: "", workflow: "",
+      diagnostics: "", robustness: "", packages: "", failure: "", source_urls: [],
+    } : {
+      name: "", category: "", latex: "", use_when: "", notation: "",
+      assumptions: "", diagnostics: "", packages: "", warning: "", source_urls: [],
+    });
+  };
+  const createManualRecord = async () => {
+    const created = await onCreateRecord(
+      kind,
+      manualContent,
+      manualReason.trim(),
+    );
+    if (created) setSelectedRecordId(created.record_id);
+  };
+  return <section className="knowledge-governance">
+    <header><div><p className="eyebrow">Knowledge governance</p><h2>联网候选、人工批准、版本化编辑</h2><p>智能体只能创建候选；研究者核对原始来源和适用边界后，才可提升为方法 / 公式权威记录。</p></div><div><strong>{pending.length}</strong><span>待人工审核</span><strong>{records.length}</strong><span>自定义权威记录</span></div></header>
+    <section className="knowledge-discovery-bar">
+      <select value={kind} onChange={(event) => changeKind(event.target.value as KnowledgeAssetKind)}><option value="method">搜索方法</option><option value="formula">搜索公式</option></select>
+      <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={kind === "method" ? "例如：分期处理双重差分 管理学应用 诊断" : "例如：Callaway Sant'Anna group-time ATT 公式"} />
+      <button className="primary-action" disabled={busy || query.trim().length < 3} onClick={() => void onDiscover(kind, query.trim())}>{busy ? "联网中…" : "智能体联网发现"}</button>
+      <button onClick={() => setManualOpen((open) => !open)}>{manualOpen ? "关闭人工新建" : "＋ 人工新建"}</button>
+    </section>
+    {manualOpen && <section className="manual-knowledge-record"><header><div><p className="eyebrow">Human authored</p><h3>人工创建{kind === "method" ? "方法" : "公式"}记录</h3></div><span>至少保留一个可核验的 HTTP(S) 原始来源</span></header><KnowledgeContentEditor kind={kind} content={manualContent} onChange={setManualContent} /><label className="knowledge-review-reason"><span>创建理由</span><textarea rows={3} value={manualReason} onChange={(event) => setManualReason(event.target.value)} /></label><button className="primary-action" disabled={busy || manualReason.trim().length < 3} onClick={() => void createManualRecord()}>创建权威记录</button></section>}
+    <section className="knowledge-queue"><header><div><h3>候选审核队列</h3><p>候选内容可在批准前直接修改；不完整的来源、假设或诊断应退回补全。</p></div><span>{pending.length} 项</span></header>{pending.map((candidate) => <KnowledgeCandidateReviewCard key={`${candidate.candidate_id}:${candidate.revision}`} candidate={candidate} busy={busy} onReview={onReviewCandidate} />)}{pending.length === 0 && <div className="empty-state">当前没有待审核候选。</div>}</section>
+    <section className="knowledge-authority-workbench"><aside><p className="eyebrow">Custom authority</p><h3>人工批准记录</h3>{records.map((record) => <button className={selectedRecord?.record_id === record.record_id ? "is-active" : ""} key={record.record_id} onClick={() => setSelectedRecordId(record.record_id)}><span>{record.kind === "method" ? "方法" : "公式"}</span><strong>{String(record.content.name || record.record_id)}</strong><small>{record.record_id} · r{record.revision}</small></button>)}{records.length === 0 && <p>尚无自定义权威记录。</p>}</aside>{selectedRecord ? <KnowledgeRecordEditor key={`${selectedRecord.record_id}:${selectedRecord.revision}`} record={selectedRecord} busy={busy} onPatch={onPatchRecord} /> : <div className="empty-state">批准候选或人工新建后，可以在这里继续版本化编辑。</div>}</section>
+  </section>;
 }
 
 function RunsView({
@@ -1756,6 +2274,8 @@ export default function Home() {
   const [stageRevisions, setStageRevisions] = useState<Record<string, StageRevision[]>>({});
   const [restoringRevision, setRestoringRevision] = useState<number | null>(null);
   const [knowledgeEvaluations, setKnowledgeEvaluations] = useState<Record<string, KnowledgeEvaluation>>({});
+  const [knowledgeGovernanceCandidates, setKnowledgeGovernanceCandidates] = useState<KnowledgeGovernanceCandidate[]>([]);
+  const [knowledgeGovernanceRecords, setKnowledgeGovernanceRecords] = useState<KnowledgeGovernanceRecord[]>([]);
   const [knowledgeBusy, setKnowledgeBusy] = useState(false);
   const [diagnosticRules, setDiagnosticRules] = useState<DiagnosticRule[]>([]);
   const [diagnosticRegistryVersion, setDiagnosticRegistryVersion] = useState("");
@@ -1785,16 +2305,35 @@ export default function Home() {
   const deepRoute = deepStack[deepStack.length - 1];
   const deepStageDraftIndex = deepRoute?.kind === "stage-draft" ? deepRoute.stageIndex : null;
   const activeEvidence = projectEvidenceRecords(activeApiProject);
+  const activeEvidenceCandidates = projectEvidenceCandidates(activeApiProject);
   const literatureContent = activeApiProject?.stages.find((stage) => stage.key === "literature")?.content;
-  const literatureSearchRuns = Array.isArray(literatureContent?.search_runs) ? literatureContent.search_runs.length : 0;
+  const literatureSearchRuns = (
+    Array.isArray(literatureContent?.search_runs) ? literatureContent.search_runs.length : 0
+  ) + (
+    Array.isArray(literatureContent?.evidence_discovery_runs)
+      ? literatureContent.evidence_discovery_runs.length
+      : 0
+  );
   const activeKnowledgeEvaluation = knowledgeEvaluations[activeProject.id];
   const methodAssessments = new Map((activeKnowledgeEvaluation?.status === "current" ? activeKnowledgeEvaluation.methods : []).map((item) => [item.candidate_id, item]));
   const formulaAssessments = new Map((activeKnowledgeEvaluation?.status === "current" ? activeKnowledgeEvaluation.formulas : []).map((item) => [item.candidate_id, item]));
-  const evaluatedMethods = methods.map((method) => {
+  const allMethods = [
+    ...methods,
+    ...knowledgeGovernanceRecords
+      .filter((record) => record.kind === "method")
+      .map(knowledgeMethodRecord),
+  ];
+  const allFormulas = [
+    ...formulas,
+    ...knowledgeGovernanceRecords
+      .filter((record) => record.kind === "formula")
+      .map(knowledgeFormulaRecord),
+  ];
+  const evaluatedMethods = allMethods.map((method) => {
     const assessment = methodAssessments.get(method.id);
     return { ...method, fit: assessment?.score ?? null, fitRationale: assessment?.rationale };
   });
-  const evaluatedFormulas = formulas.map((formula) => {
+  const evaluatedFormulas = allFormulas.map((formula) => {
     const assessment = formulaAssessments.get(formula.id);
     return { ...formula, fit: assessment?.score ?? null, fitRationale: assessment?.rationale };
   });
@@ -1818,6 +2357,19 @@ export default function Home() {
       cancelled = true;
       window.cancelAnimationFrame(frame);
     };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([
+      listApiKnowledgeGovernanceCandidates(),
+      listApiKnowledgeGovernanceRecords(),
+    ]).then(([candidates, records]) => {
+      if (cancelled) return;
+      setKnowledgeGovernanceCandidates(candidates);
+      setKnowledgeGovernanceRecords(records);
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -2030,22 +2582,175 @@ export default function Home() {
     }).finally(() => setApiBusy(false));
   }
 
-  async function runEvidenceSearch(query: string) {
+  async function runEvidenceSearch(
+    query: string,
+    candidateType: "literature" | "data_study",
+  ) {
     if (!apiProjectIds[activeProject.id]) {
       setApiError("证据检索必须连接 FastAPI 项目");
       showToast("检索未运行：当前项目未连接后端");
       return;
     }
+    const literature = apiProjects[activeProject.id]?.stages.find(
+      (stage) => stage.key === "literature",
+    );
+    if (!literature || literature.status === "not_started") {
+      showToast("请先完成上游审批并解锁 S1，再运行证据发现");
+      return;
+    }
     setApiBusy(true);
     try {
-      const updated = await searchApiLiterature(activeProject.id, [query]);
+      const updated = await discoverApiEvidenceCandidates(
+        activeProject.id,
+        query,
+        candidateType,
+        literature.revision,
+      );
       applyApiProject(updated);
       setApiError("");
-      const count = projectEvidenceRecords(updated).length;
-      showToast(`检索完成，当前项目证据库已保存 ${count} 条论文记录`);
+      const count = projectEvidenceCandidates(updated).filter(
+        (item) => item.status === "pending",
+      ).length;
+      showToast(`联网发现已保存，当前有 ${count} 条候选等待人工审核；尚未进入权威证据库`);
     } catch (error) {
       setApiError(readApiError(error));
       showToast(`检索未完成：${readApiError(error)}`);
+    } finally {
+      setApiBusy(false);
+    }
+  }
+
+  async function reviewEvidenceCandidate(
+    candidate: EvidenceCandidate,
+    decision: "approve" | "reject" | "request_changes",
+    reason: string,
+    evidenceLevel: EvidenceLevel,
+    edits: Record<string, unknown>,
+  ) {
+    const literature = apiProjects[activeProject.id]?.stages.find(
+      (stage) => stage.key === "literature",
+    );
+    if (!literature) {
+      showToast("S1 后端阶段尚未加载");
+      return;
+    }
+    setApiBusy(true);
+    try {
+      const updated = await reviewApiEvidenceCandidate(
+        activeProject.id,
+        candidate.candidate_id,
+        decision,
+        reason,
+        evidenceLevel,
+        literature.revision,
+        edits,
+      );
+      applyApiProject(updated);
+      setApiError("");
+      showToast(decision === "approve"
+        ? "候选已由研究者批准并生成 EVLIB 权威记录"
+        : decision === "reject"
+          ? "候选已拒绝，不会进入论文引用"
+          : "候选已退回补充，仍不可进入论文引用");
+    } catch (error) {
+      setApiError(readApiError(error));
+      showToast(`候选审核未保存：${readApiError(error)}`);
+    } finally {
+      setApiBusy(false);
+    }
+  }
+
+  async function updateEvidenceRecord(
+    record: EvidenceRecord,
+    edits: Record<string, unknown>,
+    reason: string,
+  ) {
+    const literature = apiProjects[activeProject.id]?.stages.find(
+      (stage) => stage.key === "literature",
+    );
+    if (!literature) {
+      showToast("S1 后端阶段尚未加载");
+      return;
+    }
+    setApiBusy(true);
+    try {
+      const updated = await patchApiEvidenceRecord(
+        activeProject.id,
+        record.id,
+        edits,
+        reason,
+        literature.revision,
+      );
+      applyApiProject(updated);
+      setApiError("");
+      showToast(`${record.id} 已保存为新的权威证据 revision`);
+    } catch (error) {
+      setApiError(readApiError(error));
+      showToast(`证据记录保存失败：${readApiError(error)}`);
+      throw error;
+    } finally {
+      setApiBusy(false);
+    }
+  }
+
+  async function selectResearchQuestion(questionId: string, rationale: string) {
+    const problemStage = apiProjects[activeProject.id]?.stages.find(
+      (stage) => stage.key === "problem",
+    );
+    if (!apiProjectIds[activeProject.id] || !problemStage) {
+      const message = "研究问题选择必须连接 FastAPI 项目并完成 S0 加载";
+      setApiError(message);
+      showToast(message);
+      return;
+    }
+    setApiBusy(true);
+    try {
+      const updated = await selectApiProblemQuestion(
+        activeProject.id,
+        questionId,
+        rationale,
+        problemStage.revision,
+      );
+      applyApiProject(updated);
+      setApiError("");
+      showToast(`${questionId} 已由研究者选定；候选集变化时该选择会自动失效`);
+    } catch (error) {
+      setApiError(readApiError(error));
+      showToast(`研究问题选择未保存：${readApiError(error)}`);
+    } finally {
+      setApiBusy(false);
+    }
+  }
+
+  async function reviewCurrentLiteraturePlan(
+    decision: "approve" | "request_changes",
+    reason: string,
+  ) {
+    const literatureStage = apiProjects[activeProject.id]?.stages.find(
+      (stage) => stage.key === "literature",
+    );
+    if (!apiProjectIds[activeProject.id] || !literatureStage) {
+      const message = "检索计划审阅必须连接 FastAPI 项目并完成 S1 加载";
+      setApiError(message);
+      showToast(message);
+      return;
+    }
+    setApiBusy(true);
+    try {
+      const updated = await reviewApiLiteraturePlan(
+        activeProject.id,
+        decision,
+        reason,
+        literatureStage.revision,
+      );
+      applyApiProject(updated);
+      setApiError("");
+      showToast(decision === "approve"
+        ? "当前检索计划已由研究者批准，可以执行检索"
+        : "检索计划已退回；修改查询与纳排范围后需重新批准");
+    } catch (error) {
+      setApiError(readApiError(error));
+      showToast(`检索计划审阅未保存：${readApiError(error)}`);
     } finally {
       setApiBusy(false);
     }
@@ -2061,13 +2766,13 @@ export default function Home() {
     try {
       let job = await submitApiKnowledgeEvaluation(
         activeProject.id,
-        methods.map((method) => ({
+        allMethods.map((method) => ({
           candidate_id: method.id,
           name: method.name,
           description: `${method.goal}\n估计目标：${method.estimand}\n数据结构：${method.dataShape}`,
           assumptions: [...method.assumptions],
         })),
-        formulas.map((formula) => ({
+        allFormulas.map((formula) => ({
           candidate_id: formula.id,
           name: formula.title,
           description: `${formula.purpose}\n公式：${formula.formula}`,
@@ -2095,6 +2800,108 @@ export default function Home() {
     } catch (error) {
       setApiError(readApiError(error));
       showToast(`AI 评估未完成：${readApiError(error)}`);
+    } finally {
+      setKnowledgeBusy(false);
+    }
+  }
+
+  async function refreshKnowledgeGovernance() {
+    const [candidates, records] = await Promise.all([
+      listApiKnowledgeGovernanceCandidates(),
+      listApiKnowledgeGovernanceRecords(),
+    ]);
+    setKnowledgeGovernanceCandidates(candidates);
+    setKnowledgeGovernanceRecords(records);
+  }
+
+  async function discoverKnowledgeCandidate(
+    kind: KnowledgeAssetKind,
+    query: string,
+  ) {
+    setKnowledgeBusy(true);
+    try {
+      const result = await discoverApiKnowledgeCandidates(kind, query);
+      await refreshKnowledgeGovernance();
+      setApiError("");
+      showToast(`智能体发现 ${result.count} 条${kind === "method" ? "方法" : "公式"}候选，均等待人工审核`);
+    } catch (error) {
+      setApiError(readApiError(error));
+      showToast(`知识候选发现失败：${readApiError(error)}`);
+    } finally {
+      setKnowledgeBusy(false);
+    }
+  }
+
+  async function reviewKnowledgeGovernanceCandidate(
+    candidate: KnowledgeGovernanceCandidate,
+    decision: "approve" | "reject" | "request_changes",
+    reason: string,
+    content: Record<string, unknown>,
+  ) {
+    setKnowledgeBusy(true);
+    try {
+      await reviewApiKnowledgeCandidate(
+        candidate.candidate_id,
+        decision,
+        reason,
+        candidate.revision,
+        content,
+      );
+      await refreshKnowledgeGovernance();
+      setApiError("");
+      showToast(decision === "approve"
+        ? "候选已由研究者批准并写入版本化知识库"
+        : decision === "reject"
+          ? "候选已拒绝"
+          : "候选已退回补全");
+    } catch (error) {
+      setApiError(readApiError(error));
+      showToast(`候选审核失败：${readApiError(error)}`);
+    } finally {
+      setKnowledgeBusy(false);
+    }
+  }
+
+  async function createKnowledgeGovernanceRecord(
+    kind: KnowledgeAssetKind,
+    content: Record<string, unknown>,
+    reason: string,
+  ): Promise<KnowledgeGovernanceRecord | null> {
+    setKnowledgeBusy(true);
+    try {
+      const record = await createApiKnowledgeRecord(kind, content, reason);
+      await refreshKnowledgeGovernance();
+      setApiError("");
+      showToast(`${record.record_id} 已由研究者创建并写入权威知识库`);
+      return record;
+    } catch (error) {
+      setApiError(readApiError(error));
+      showToast(`人工知识记录创建失败：${readApiError(error)}`);
+      return null;
+    } finally {
+      setKnowledgeBusy(false);
+    }
+  }
+
+  async function patchKnowledgeGovernanceRecord(
+    record: KnowledgeGovernanceRecord,
+    content: Record<string, unknown>,
+    reason: string,
+  ) {
+    setKnowledgeBusy(true);
+    try {
+      const updated = await patchApiKnowledgeRecord(
+        record.record_id,
+        content,
+        reason,
+        record.revision,
+      );
+      await refreshKnowledgeGovernance();
+      setApiError("");
+      showToast(`${updated.record_id} 已保存 Revision ${updated.revision}`);
+    } catch (error) {
+      setApiError(readApiError(error));
+      showToast(`知识记录保存失败：${readApiError(error)}`);
     } finally {
       setKnowledgeBusy(false);
     }
@@ -2203,13 +3010,39 @@ export default function Home() {
         const literature = working.stages.find((item) => item.key === "literature");
         const queryBlocks = literature?.content.query_blocks;
         if (!Array.isArray(queryBlocks) || queryBlocks.length === 0) {
-          await createApiStageDraft(
+          updated = await createApiStageDraft(
             projectId,
             stageKey,
             "先形成覆盖经典、前沿、相邻概念、争议和反向证据的可执行检索协议。",
           );
+          applyApiProject(updated);
+          showToast("S1 检索计划已生成；请先人工审阅并批准，再执行检索与综述");
+          return;
         }
-        await searchApiLiterature(projectId);
+        const planReview = asRecord(literature?.content.literature_plan_review);
+        if (planReview?.status !== "approved") {
+          showToast("检索尚未执行：请先在阶段页面批准当前检索计划");
+          return;
+        }
+        const candidates = projectEvidenceCandidates(working);
+        const library = projectEvidenceRecords(working);
+        if (candidates.length === 0) {
+          updated = await searchApiLiterature(projectId);
+          applyApiProject(updated);
+          showToast("检索结果已保存为候选；请到证据库逐条审核，批准后才能生成综述");
+          return;
+        }
+        const unresolvedCount = candidates.filter(
+          (item) => item.status === "pending" || item.status === "changes_requested",
+        ).length;
+        if (unresolvedCount > 0) {
+          showToast(`综述尚未生成：还有 ${unresolvedCount} 条证据候选需要人工处理`);
+          return;
+        }
+        if (library.length === 0) {
+          showToast("综述尚未生成：没有人工批准的权威证据，请扩大检索或批准至少一条合格候选");
+          return;
+        }
         updated = await createApiStageDraft(
           projectId,
           stageKey,
@@ -2388,10 +3221,17 @@ export default function Home() {
     setChatLoadingKey(key);
     try {
       const messages = await listApiStageChat(projectId, stages[index].key);
-      setChatMessages((current) => ({
-        ...current,
-        [key]: messages.map(mapChatMessage),
-      }));
+      const loadedMessages = messages.map(mapChatMessage);
+      setChatMessages((current) => {
+        const loadedIds = new Set(loadedMessages.map((message) => message.id));
+        const messagesCreatedWhileLoading = (current[key] ?? []).filter(
+          (message) => !loadedIds.has(message.id),
+        );
+        return {
+          ...current,
+          [key]: [...loadedMessages, ...messagesCreatedWhileLoading],
+        };
+      });
     } catch (error) {
       showToast(`对话历史读取失败：${readApiError(error)}`);
     } finally {
@@ -2552,6 +3392,36 @@ export default function Home() {
     openDeep({ kind: "stage-draft", stageIndex: activeStage });
   }
   function runStageCheck() {
+    if (activeStageData.key === "delivery" && apiProjectIds[activeProject.id]) {
+      setApiBusy(true);
+      void getApiDeliveryQuality(activeProject.id).then((quality) => {
+        const statusLabel = {
+          needs_revision: "需要整改",
+          ready_with_advisories: "可交付，但有改进项",
+          ready: "可以交付",
+        }[quality.status];
+        setDetail({
+          eyebrow: `S9 · Academic output quality · ${quality.schema_version}`,
+          title: `交付质量检查：${statusLabel}`,
+          description: "按结构、引文双向一致性、证据可追溯、逻辑闭环和管理学适用规则检查。必须修复项会阻止 G5 与导出。",
+          rows: [
+            { label: "交付 revision", value: String(quality.delivery_revision) },
+            { label: "必须修复", value: String(quality.counts.must_fix) },
+            { label: "建议改进", value: String(quality.counts.should_improve) },
+            { label: "正文小节", value: String(quality.traceability.section_count) },
+            { label: "已引用论文", value: String(quality.traceability.cited_paper_ids.length) },
+          ],
+          bullets: quality.issues.length
+            ? quality.issues.slice(0, 12).map((issue) => `[${issue.rule_id}] ${issue.location}：${issue.finding}；处理：${issue.required_action}`)
+            : ["未发现阻塞项或建议改进项。仍需由指定人工角色完成 G5 审批。"],
+        });
+        setApiError("");
+      }).catch((error) => {
+        setApiError(readApiError(error));
+        showToast(`交付质量检查失败：${readApiError(error)}`);
+      }).finally(() => setApiBusy(false));
+      return;
+    }
     openDeep({ kind: "stage-check", stageIndex: activeStage });
   }
   function completeProject(project: ResearchProject) {
@@ -2653,8 +3523,8 @@ export default function Home() {
       return <ProjectOverviewPage project={project} onBack={backDeep} onStart={() => activateProject(project.id)} onEdit={() => openDeep({ kind: "project-wizard", projectId: project.id })} onNew={() => openDeep({ kind: "project-wizard" })} />;
     }
     if (deepRoute.kind === "evidence-record") {
-      const record = activeEvidence.find((item) => item.title === deepRoute.title);
-      return record ? <EvidenceRecordPage record={record} onBack={backDeep} onSave={() => showToast("本页编辑仅临时保留；请写入 S1/S8 阶段草稿并保存正式 revision")} /> : null;
+      const record = activeEvidence.find((item) => item.id === deepRoute.evidenceId);
+      return record ? <EvidenceRecordPage record={record} busy={apiBusy} onBack={backDeep} onSave={(edits, reason) => updateEvidenceRecord(record, edits, reason)} /> : null;
     }
     if (deepRoute.kind === "method-record") {
       const method = evaluatedMethods.find((item) => item.id === deepRoute.methodId) ?? evaluatedMethods[0];
@@ -2695,11 +3565,11 @@ export default function Home() {
             <button className="project-switcher" onClick={() => setProjectMenu((open) => !open)} aria-expanded={projectMenu}><span>当前项目</span><strong>{activeProject.name}</strong><b>⌄</b></button>
             {projectMenu && <div className="project-menu">
               <div className="project-menu-label">项目列表 · {projects.length}</div>
+              <button className="new-project" onClick={() => { setView("journey"); replaceDeep({ kind: "project-wizard" }); }}>＋ 创建新课题</button>
+              <button className="project-center-link" onClick={() => { setView("journey"); replaceDeep({ kind: "project-overview", projectId: activeProject.id }); }}>查看当前项目中心 <span>→</span></button>
+              <hr />
               {projects.map((project) => <button className={project.id === activeProject.id ? "is-current" : ""} onClick={() => activateProject(project.id)} key={project.id}><span>{project.icon}</span><div><strong>{project.name}</strong><small>S{project.stageIndex} · {stages[project.stageIndex].name}</small></div>{project.id === activeProject.id && <b>✓</b>}</button>)}
               <div className={`project-api-state state-${apiMode}`} title={apiError || "FastAPI connection ready"}><span /><div><strong>{apiBusy ? "正在同步" : apiMode === "connected" ? "FastAPI 已连接" : apiMode === "loading" ? "正在连接项目服务" : "前端演示数据模式"}</strong><small>{apiMode === "fallback" ? "恢复后端后可继续同步" : "项目与阶段 revision 保持一致"}</small></div></div>
-              <hr />
-              <button className="project-center-link" onClick={() => { setView("journey"); replaceDeep({ kind: "project-overview", projectId: activeProject.id }); }}>查看当前项目中心 <span>→</span></button>
-              <button className="new-project" onClick={() => { setView("journey"); replaceDeep({ kind: "project-wizard" }); }}>＋ 创建新课题</button>
             </div>}
           </div>
           <button className="icon-button" onClick={() => { navigateView("approvals"); showToast("已打开人工审批中心"); }} aria-label="通知">●<i>2</i></button>
@@ -2732,7 +3602,11 @@ export default function Home() {
                     ? <DesignWorkspace question={question} setQuestion={setQuestion} selectedDesign={selectedDesign} setSelectedDesign={setSelectedDesign} onCompareMethods={() => setView("methods")} onSave={() => void saveDesignPanel()} remoteStage={activeRemoteStage} methodRecords={evaluatedMethods} busy={apiBusy} />
                     : activeStage === 9
                       ? <DeliveryCenter projectId={activeProject.id} remoteStage={activeRemoteStage} busy={apiBusy} onExport={() => void refreshDeliveryExport()} />
-                      : <GenericStage stageIndex={activeStage} remoteStage={activeRemoteStage} onOpenDraft={openStageDraft} onOpenDecision={() => openDeep({ kind: "stage-decisions", stageIndex: activeStage })} onRunCheck={runStageCheck} />}
+                      : <div className="stage-control-stack">
+                        {activeStage === 0 && <ProblemQuestionControl key={`problem-${activeRemoteStage?.revision ?? 0}`} stage={activeRemoteStage} busy={apiBusy} onSelect={selectResearchQuestion} />}
+                        {activeStage === 1 && <LiteraturePlanControl key={`literature-${activeRemoteStage?.revision ?? 0}`} stage={activeRemoteStage} busy={apiBusy} onReview={reviewCurrentLiteraturePlan} />}
+                        <GenericStage stageIndex={activeStage} remoteStage={activeRemoteStage} onOpenDraft={openStageDraft} onOpenDecision={() => openDeep({ kind: "stage-decisions", stageIndex: activeStage })} onRunCheck={runStageCheck} />
+                      </div>}
                 </section>
                 <AgentPanel
                   stageIndex={activeStage}
@@ -2749,8 +3623,8 @@ export default function Home() {
               </div>
             </>
           )}
-          {view === "evidence" && <EvidenceLibrary records={activeEvidence} searchRuns={literatureSearchRuns} busy={apiBusy} onSearch={runEvidenceSearch} onOpenRecord={(title) => openDeep({ kind: "evidence-record", title })} onToast={showToast} />}
-          {view === "methods" && <MethodsView methods={evaluatedMethods} formulas={evaluatedFormulas} diagnosticRules={diagnosticRules} diagnosticRegistryVersion={diagnosticRegistryVersion} evaluation={activeKnowledgeEvaluation} busy={knowledgeBusy} onEvaluate={runKnowledgeEvaluation} onOpenMethod={(methodId) => openDeep({ kind: "method-record", methodId })} onOpenFormula={(formulaId) => openDeep({ kind: "formula-record", formulaId })} onAdd={addMethodToDesign} onToast={showToast} />}
+          {view === "evidence" && <EvidenceLibrary records={activeEvidence} candidates={activeEvidenceCandidates} searchRuns={literatureSearchRuns} busy={apiBusy} onSearch={runEvidenceSearch} onReview={reviewEvidenceCandidate} onOpenRecord={(evidenceId) => openDeep({ kind: "evidence-record", evidenceId })} onToast={showToast} />}
+          {view === "methods" && <MethodsView methods={evaluatedMethods} formulas={evaluatedFormulas} governanceCandidates={knowledgeGovernanceCandidates} governanceRecords={knowledgeGovernanceRecords} diagnosticRules={diagnosticRules} diagnosticRegistryVersion={diagnosticRegistryVersion} evaluation={activeKnowledgeEvaluation} busy={knowledgeBusy} onEvaluate={runKnowledgeEvaluation} onOpenMethod={(methodId) => openDeep({ kind: "method-record", methodId })} onOpenFormula={(formulaId) => openDeep({ kind: "formula-record", formulaId })} onAdd={addMethodToDesign} onDiscover={discoverKnowledgeCandidate} onReviewCandidate={reviewKnowledgeGovernanceCandidate} onCreateRecord={createKnowledgeGovernanceRecord} onPatchRecord={patchKnowledgeGovernanceRecord} onToast={showToast} />}
           {view === "runs" && <RunsView project={activeProject} apiProject={apiProjects[activeProject.id]} onProjectUpdated={applyApiProject} onOpenGate={(gateId) => openDeep({ kind: "approval-gate", gateId })} onToast={showToast} />}
           {view === "approvals" && <ApprovalsView project={activeProject} apiProject={activeApiProject} onOpenGate={(gateId) => openDeep({ kind: "approval-gate", gateId })} onOpenDetail={setDetail} />}
           </>}

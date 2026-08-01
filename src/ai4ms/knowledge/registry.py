@@ -107,7 +107,13 @@ class KnowledgeRegistry:
         )
 
     @classmethod
-    def method_candidates(cls, goal: str = "", query: str = "", limit: int = 10) -> list[dict[str, Any]]:
+    def method_candidates(
+        cls,
+        goal: str = "",
+        query: str = "",
+        limit: int = 10,
+        extra_items: list[dict[str, Any]] | None = None,
+    ) -> list[dict[str, Any]]:
         goal_keywords = {
             "causal": "因果识别 因果推断 实验 统计实证",
             "explain": "机制解释 实证解释 测量模型 定性研究 实验",
@@ -119,7 +125,12 @@ class KnowledgeRegistry:
         }
         terms = _search_terms(f"{query} {goal_keywords.get(goal, '')}")
         scored = []
-        for index, item in enumerate(cls.methods()):
+        items = cls._merge_records(
+            cls.methods(),
+            extra_items or [],
+            "method_id",
+        )
+        for index, item in enumerate(items):
             haystack = " ".join(str(value) for value in item.values()).lower()
             score = sum(1 for term in terms if term in haystack)
             if item.get("method_id") == "M01":
@@ -147,11 +158,18 @@ class KnowledgeRegistry:
         query: str = "",
         method_ids: list[str] | None = None,
         limit: int = 12,
+        extra_items: list[dict[str, Any]] | None = None,
+        extra_methods: list[dict[str, Any]] | None = None,
     ) -> list[dict[str, Any]]:
         terms = _search_terms(query)
         linked_formula_ids: set[str] = set()
         selected_methods = set(method_ids or [])
-        for method in cls.methods():
+        methods = cls._merge_records(
+            cls.methods(),
+            extra_methods or [],
+            "method_id",
+        )
+        for method in methods:
             if method.get("method_id") not in selected_methods:
                 continue
             linked_formula_ids.update(
@@ -160,7 +178,12 @@ class KnowledgeRegistry:
                 if part.strip()
             )
         scored = []
-        for index, item in enumerate(cls.formulas()):
+        formulas = cls._merge_records(
+            cls.formulas(),
+            extra_items or [],
+            "formula_id",
+        )
+        for index, item in enumerate(formulas):
             haystack = " ".join(str(value) for value in item.values()).lower()
             score = sum(1 for term in terms if term in haystack)
             if item.get("formula_id") in linked_formula_ids:
@@ -183,3 +206,20 @@ class KnowledgeRegistry:
     def _compact_formula(item: dict[str, Any]) -> dict[str, Any]:
         keys = ("formula_id", "category", "name", "latex", "use_when", "assumptions", "diagnostics", "warning")
         return {key: item.get(key, "") for key in keys}
+
+    @staticmethod
+    def _merge_records(
+        builtins: list[dict[str, Any]],
+        extras: list[dict[str, Any]],
+        identifier: str,
+    ) -> list[dict[str, Any]]:
+        merged = {
+            str(item.get(identifier)): dict(item)
+            for item in builtins
+            if item.get(identifier)
+        }
+        for item in extras:
+            if not isinstance(item, dict) or not item.get(identifier):
+                continue
+            merged[str(item[identifier])] = dict(item)
+        return list(merged.values())

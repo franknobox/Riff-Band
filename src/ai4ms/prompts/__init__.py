@@ -1,6 +1,7 @@
 from ai4ms.prompts.catalog import PromptCatalog, StagePrompt
 from ai4ms.prompts.contracts import (
     AnalysisPlanDraft,
+    AcademicOutputProfileDraft,
     ClaimEvidenceDraft,
     DataDraft,
     DeliveryDraft,
@@ -8,7 +9,11 @@ from ai4ms.prompts.contracts import (
     LiteraturePlanDraft,
     LiteratureSynthesisDraft,
     LogicStepDraft,
+    ManuscriptSectionDraft,
+    PaperEvidenceCardDraft,
     ProblemDraft,
+    ProblemDiagnosticDraft,
+    ResearchQuestionCandidateDraft,
     ReasoningTraceDraft,
     RobustnessDraft,
     RunPreparationDraft,
@@ -26,6 +31,7 @@ from ai4ms.prompts.policies import (
 
 __all__ = [
     "AnalysisPlanDraft",
+    "AcademicOutputProfileDraft",
     "ClaimEvidenceDraft",
     "DataDraft",
     "DeliveryDraft",
@@ -33,11 +39,15 @@ __all__ = [
     "LiteraturePlanDraft",
     "LiteratureSynthesisDraft",
     "LogicStepDraft",
+    "ManuscriptSectionDraft",
+    "PaperEvidenceCardDraft",
     "ProblemDraft",
+    "ProblemDiagnosticDraft",
     "PromptCatalog",
     "PROMPT_POLICY_REGISTRY_VERSION",
     "RISK_LEVELS",
     "ReasoningTraceDraft",
+    "ResearchQuestionCandidateDraft",
     "RobustnessDraft",
     "RunPreparationDraft",
     "STAGE_AGENT_POLICIES",

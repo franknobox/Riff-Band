@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="AI4MS 管理科学 AI 科研协作平台完整产品与使用说明" />
-  <meta name="ai4ms-guide-version" content="0.1.0" />
-  <meta name="ai4ms-guide-commit" content="d2e5a628e32b" />
+  <meta name="ai4ms-guide-version" content="0.5.0" />
+  <meta name="ai4ms-guide-commit" content="20440ad21480" />
   <meta name="ai4ms-guide-channel" content="ai4ms" />
   <title>AI4MS 完整使用说明</title>
   <style>
@@ -198,8 +198,8 @@
           <p class="lede">AI4MS 面向管理科学研究者，把选题、已有研究报告、理论、设计、数据、Stata 分析、稳健性、写作与发布放在一个连续工作台中。每个阶段由专属智能体协助，但关键学术判断始终由人决定。</p>
         </div>
         <aside>
-          <div><span>文档版本</span><strong data-ai4ms-build-field="version">v0.1.0 · ai4ms</strong></div>
-          <div><span>构建提交</span><strong><span data-ai4ms-build-field="commit">d2e5a628e32b</span></strong></div>
+          <div><span>文档版本</span><strong data-ai4ms-build-field="version">v0.5.0 · ai4ms</strong></div>
+          <div><span>构建提交</span><strong><span data-ai4ms-build-field="commit">20440ad21480</span></strong></div>
           <div><span>适用对象</span><strong>研究者、导师、方法审核者、数据负责人</strong></div>
           <div><span>工作模式</span><strong>10 阶段智能体 + 6 个人工审批门</strong></div>
           <div><span>核心原则</span><strong>AI 起草，人类决定，全程留痕</strong></div>
@@ -241,8 +241,8 @@
           <table>
             <thead><tr><th>阶段</th><th>专属智能体</th><th>主要工作</th><th>阶段交付</th><th>必须由人决定</th><th>审批关系</th></tr></thead>
             <tbody>
-              <tr><td class="stage-id">S0 问题识别</td><td><strong>Topic Agent</strong><small>选题与研究空白</small></td><td>反向检索近似课题，判断新颖性、价值与可行性。</td><td>课题简报、已有研究报告、候选问题。</td><td>确认边界、改写问题或暂停。</td><td><span class="gate">G0</span></td></tr>
-              <tr><td class="stage-id">S1 文献综述</td><td><strong>Literature Agent</strong><small>证据检索与综合</small></td><td>记录检索式、来源、纳排标准，构建论文卡和证据流派。</td><td>检索协议、证据表、流派综述。</td><td>决定纳入/排除与冲突处理。</td><td>G1 前置</td></tr>
+              <tr><td class="stage-id">S0 问题识别</td><td><strong>Topic Agent</strong><small>选题与研究空白</small></td><td>区分管理现象、决策问题和科学问题，生成可比较候选及反向检索。</td><td>课题简报、问题诊断、候选问题与选择取舍。</td><td>选择 question_id、写理由、确认边界或暂停。</td><td><span class="gate">G0</span></td></tr>
+              <tr><td class="stage-id">S1 文献综述</td><td><strong>Literature Agent</strong><small>证据检索与综合</small></td><td>人工复核检索计划，逐篇筛选并生成带定位的证据卡、方法比较和矛盾综合。</td><td>检索协议、覆盖审计、证据卡、流派与综合型大纲。</td><td>批准 query plan，决定纳入/排除及冲突处理。</td><td>G1 前置</td></tr>
               <tr><td class="stage-id">S2 理论构建</td><td><strong>Theory Agent</strong><small>机制与竞争解释</small></td><td>连接构念、机制、边界条件和可区分的竞争解释。</td><td>理论图、研究问题、假设草案。</td><td>选择理论与贡献边界。</td><td>G1 前置</td></tr>
               <tr><td class="stage-id">S3 研究设计</td><td><strong>Design Agent</strong><small>主备设计比较</small></td><td>确定 estimand、样本、主备方法、识别假设和停止条件。</td><td>研究协议、设计备忘录、假设表。</td><td>选择主设计并接受剩余风险。</td><td><span class="gate">G1</span></td></tr>
               <tr><td class="stage-id">S4 数据与变量</td><td><strong>Data Agent</strong><small>数据合同与口径</small></td><td>登记来源、许可、变量、缺失、隐私和运行位置。</td><td>数据合同、变量表、伦理清单。</td><td>确认许可、代理变量与数据边界。</td><td><span class="gate">G2</span></td></tr>
@@ -250,7 +250,7 @@
               <tr><td class="stage-id">S6 结果分析</td><td><strong>Stata Analyst</strong><small>代码与受控运行</small></td><td>生成 do-file、运行预检、提交正式作业并收集日志和产物。</td><td>do-file、日志、表图、数据签名。</td><td>审代码、批准运行、选择重跑分支。</td><td>G3 后运行</td></tr>
               <tr><td class="stage-id">S7 稳健性检验</td><td><strong>Robustness Agent</strong><small>失败可见</small></td><td>执行预先声明的稳健性、安慰剂、敏感性与外推检查。</td><td>稳健性矩阵、失败项、复现报告。</td><td>追加检验或接受失败影响。</td><td>G4 前置</td></tr>
               <tr><td class="stage-id">S8 机制与异质性</td><td><strong>Evidence Agent</strong><small>主张—证据图</small></td><td>把正文主张连接到结果、机制证据、反证和适用边界。</td><td>Claim-Evidence 图、解释备忘录。</td><td>改写、降级或撤回主张。</td><td><span class="gate">G4</span></td></tr>
-              <tr><td class="stage-id">S9 结论与政策含义</td><td><strong>Writing Agent</strong><small>写作与交付</small></td><td>协作生成正文、披露、交互图表、Mermaid 与多格式复现交付。</td><td>HTML、Word、PDF、Stata 复现包。</td><td>重写、披露并批准最终发布。</td><td><span class="gate">G5</span></td></tr>
+              <tr><td class="stage-id">S9 结论与政策含义</td><td><strong>Writing Agent</strong><small>写作与交付</small></td><td>按研究范式生成可编辑分节正文，连接论文、主张、证据和逻辑闭环，运行独立质量门，并生成交互图表、Mermaid 与多格式复现交付。</td><td>论文草稿、质量报告、HTML、Word、PDF、Stata 复现包、manifest 与研究包 v2。</td><td>整改 must-fix、重写、披露并批准最终发布。</td><td><span class="gate">G5</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -266,6 +266,7 @@
           <div><span>05</span><strong>同步后编辑</strong><small>写入阶段资产，保留来源、时间和同步记录，仍可人工修改。</small></div>
         </div>
         <div class="callout" style="margin-top:10px"><strong>联网搜索模式</strong><p>对话输入区可选择“自动、联网、关闭”。自动模式只在问题需要外部或时效性证据时检索；联网模式强制并行检索网页与开放学术源；关闭模式只使用项目上下文。回答中的 [1]、[2] 与下方来源卡一一对应，检索轨迹和快照会随对话保存。涉及官方统计指标时，可选的 Google Data Commons MCP 只调用只读工具；未配置时不会伪造数据。</p></div>
+        <div class="callout" style="margin-top:10px"><strong>统一 AI 输出范式</strong><p>所有模型阶段草稿、智能体回答、方法适配评估和联网发现报告都附带 <code>ai4ms.ai-report.v1</code>：包含执行摘要、面向研究者的可审计依据、来源链接、证据库链接、资产 ID、限制、待人工决定和生成来源。它不会暴露或保存模型私密思维链；研究者看到的是可以核对、反驳和修改的研究逻辑。</p></div>
         <div class="grid-3" style="margin-top:10px">
           <article class="card"><span class="num">允许</span><h3>检索、提取、比较、起草</h3><p>包括文献检索式建议、证据抽取、方法候选比较、Stata 代码草稿和写作重构。</p></article>
           <article class="card"><span class="num">需要确认</span><h3>同步、运行、风险接受</h3><p>正文同步前必须预览；正式运行和接受诊断失败必须由有权限的人操作。</p></article>
@@ -286,20 +287,22 @@
       </section>
 
       <section class="guide-section" id="evidence">
-        <div class="section-heading"><span>06 · EVIDENCE</span><div><h2>提出课题前，先形成已有相关研究报告</h2><p>证据库不是简单收藏夹。每次检索保留问题、检索式、来源范围、时间、纳排理由和冲突；论文卡连接到具体主张与研究设计。</p></div></div>
+        <div class="section-heading"><span>06 · EVIDENCE</span><div><h2>候选先审核，批准后才是可引用证据</h2><p>智能体联网找到的文献与数据研究不会直接成为项目事实，而是进入候选队列。研究者核对来源和内容、修改字段并批准后，平台才生成带 <code>EVLIB_*</code> ID、revision、内容哈希和审计轨迹的权威证据记录。</p></div></div>
         <div class="grid-3">
-          <article class="card"><span class="num">SEARCH</span><h3>创建可复核检索</h3><ul><li>输入主题、变量、机制或方法</li><li>选择顶刊、工作论文和数据来源</li><li>保留检索时间与完整条件</li></ul></article>
-          <article class="card"><span class="num">SCREEN</span><h3>论文卡与纳排</h3><ul><li>记录题名、作者、年份与稳定链接</li><li>抽取问题、理论、数据、方法和发现</li><li>人工确认纳入、排除及理由</li></ul></article>
-          <article class="card"><span class="num">SYNTHESIS</span><h3>研究流派与空白</h3><ul><li>区分一致结论、冲突与不可比 estimand</li><li>反向检索“所谓空白”是否已被处理</li><li>输出非技术人员可读的相关研究报告</li></ul></article>
+          <article class="card"><span class="num">DISCOVER</span><h3>智能体发现候选</h3><ul><li>分别搜索学术文献或数据来源 / 数据研究</li><li>保存查询、来源、检索轨迹、快照和统一 AI 报告</li><li>候选状态为 pending，不能被论文和主张直接引用</li></ul></article>
+          <article class="card"><span class="num">REVIEW</span><h3>人工核对与修改</h3><ul><li>打开原始来源核对题名、作者 / 机构、年份和稳定链接</li><li>区分元数据、摘要、全文和来源页四种证据等级</li><li>批准、拒绝或退回补充，并填写理由和可复核定位</li></ul></article>
+          <article class="card"><span class="num">AUTHORITY</span><h3>权威证据与写作</h3><ul><li>批准后生成 <code>EVLIB_*</code> 并进入版本化权威库</li><li>证据卡仍可人工修改，每次保存形成新 revision</li><li>S1 综合、S8 主张和 S9 参考文献只接受 active 权威记录</li></ul></article>
         </div>
-        <div class="callout" style="margin-top:10px"><strong>引用安全规则</strong><p>任何进入正文的文献必须能回到稳定来源；智能体不能根据记忆补齐作者、年份或结论。未核验来源只能标记为“待补证”，不能作为确定依据。</p></div>
+        <div class="callout" style="margin-top:10px"><strong>引用安全规则</strong><p><code>reference_evidence_ids</code> 是论文与数据研究的权威参考清单。每个 <code>reference_paper_id</code> 必须映射到 active 的 <code>reference_evidence_id</code>；数据研究无需伪造论文 ID，直接以 <code>EVLIB_*</code> 进入参考清单和相关正文分节。被拒绝、未审核或已归档的候选不能进入综述、主张和参考文献。</p></div>
+        <div class="callout" style="margin-top:10px"><strong>正文质量门</strong><p>S9 服务端检查正文标记、章节声明、权威证据、参考文献、问题—方法—主张—结论闭环和必要书目字段。必须修复项未清零时，不能生成正式研究包或通过 G5。</p></div>
       </section>
 
       <section class="guide-section" id="methods">
-        <div class="section-heading"><span>07 · METHODS</span><div><h2>方法、公式与 36 条诊断规则在同一工作台</h2><p>选择方法时先看研究目标、数据结构与识别假设，再看适配分数。公式卡说明符号、变量映射、条件、诊断和实现；诊断规则决定什么时候必须停止或降级结论。</p></div></div>
-        <div class="grid-3">
-          <article class="card"><span class="num">METHOD</span><h3>方法库</h3><p>前端重点展示高频方法的深度卡；后端 28 个方法注册项是权威目录。可比较 1–3 个候选并记录未采用理由。</p></article>
-          <article class="card"><span class="num">FORMULA</span><h3>公式库</h3><p>后端 47 个公式模板版本化保存。公式需绑定符号定义、变量口径、假设、诊断、代码和输出，而不是孤立展示。</p></article>
+        <div class="section-heading"><span>07 · METHODS</span><div><h2>方法和公式也采用“联网候选—人工批准—版本化权威库”</h2><p>内置方法、公式和 36 条诊断规则提供基础目录；研究者还可以让智能体联网发现新方法或公式，审核和修改后入库，也可以直接人工创建。只有人工批准记录会加入后续智能体的候选上下文。</p></div></div>
+        <div class="grid-4">
+          <article class="card"><span class="num">METHOD</span><h3>方法深度卡</h3><p>按目标、数据结构、假设、流程、诊断、稳健性、实现包和失败规则组织，可比较 1–3 个候选并记录未采用理由。</p></article>
+          <article class="card"><span class="num">FORMULA</span><h3>公式深度卡</h3><p>绑定符号、适用条件、假设、诊断、误用警告、实现命令和原始来源，而不是孤立展示表达式。</p></article>
+          <article class="card"><span class="num">GOVERN</span><h3>联网与审核</h3><p>候选可在批准前直接修改；批准后生成 <code>MUSR_*</code> 或 <code>FUSR_*</code> 权威 ID，保留来源、revision、哈希和修改理由。</p></article>
           <article class="card"><span class="num">DIAGNOSTIC</span><h3>完整 36 条规则</h3><p>支持按家族筛选、关键词检索和逐条展开。每条包含触发时点、所需证据、失败动作、等级与实现提示。</p></article>
         </div>
         <div class="table-wrap" style="margin-top:10px">
@@ -327,7 +330,7 @@
           <div><span>02</span><strong>生成 do-file</strong><small>固定 Stata 版本、路径、随机种子与输出名称。</small></div>
           <div><span>03</span><strong>运行前检查</strong><small>语法、变量、许可、数据签名和 G3 状态。</small></div>
           <div><span>04</span><strong>人工批准运行</strong><small>记录批准人、代码哈希、环境与参数。</small></div>
-          <div><span>05</span><strong>结果审阅</strong><small>日志、表图、警告、失败项和复现信息一起交付。</small></div>
+          <div><span>06</span><strong>复现归档</strong><small>日志、表图、失败项、环境与产物哈希一起进入研究包。</small></div>
         </div>
         <pre class="do-example" aria-label="Stata do-file 示例">version 18.0
 set more off
@@ -382,7 +385,7 @@ collect export "output/main_results.xlsx", replace</pre>
           <article><span>交互层</span><strong>Next.js / React / TypeScript</strong><p>研究旅程、深层资产页、证据与方法工作台、Stata Runs、审批中心、智能体对话和本使用说明。</p></article>
           <article><span>业务 API</span><strong>FastAPI</strong><p>项目、阶段资产、revision、人工决定、审批状态机、检索、知识注册表、运行作业与交付包接口。</p></article>
           <article><span>工作流与智能体</span><strong>S0–S9 orchestrator</strong><p>按阶段装配提示、工具白名单、上下文资产、结构化输出、停止规则与人工确认点。</p></article>
-          <article><span>知识与证据</span><strong>Method / Formula / Data registries</strong><p>版本化管理方法、公式、诊断、数据源、论文卡与 Claim-Evidence 关系，支持来源追溯。</p></article>
+          <article><span>知识与证据</span><strong>Candidate queues + authority registries</strong><p>文献、数据研究、方法与公式先进入候选队列；人工批准后才写入带 revision、哈希和审计轨迹的权威库，并向综述、设计、主张和写作提供可追溯 ID。</p></article>
           <article><span>运行层</span><strong>Stata Runner / job queue</strong><p>隔离执行已批准 do-file，捕获日志、状态、环境、数据签名和产物哈希；支持取消、超时和重试策略。</p></article>
           <article><span>持久化与审计</span><strong>SQLite 开发 / PostgreSQL 生产 + object storage</strong><p>结构数据、不可变 revision、审批签名、事件日志和大文件分离保存；后续接入组织权限与备份。</p></article>
         </div>
@@ -398,6 +401,8 @@ collect export "output/main_results.xlsx", replace</pre>
         <details><summary>为什么某些资产不能编辑？</summary><div>审批中的确定 revision 和已批准快照是只读的。返回工作草稿或创建新修订后才能修改；修改可能使受影响审批失效，这是为了保证审批对象不会被静默替换。</div></details>
         <details><summary>为什么正式 Stata 运行按钮被锁定？</summary><div>通常是 G3 尚未批准、运行前检查存在阻塞、数据签名变化或项目尚未推进到 S6。打开运行前检查与 G3 审批资产，逐项处理后再提交人工批准。</div></details>
         <details><summary>智能体的回答如何进入交付正文？</summary><div>在对话中选择“同步到阶段资产”，指定目标字段与追加/替换方式，预览内容并勾选人工确认。同步后内容仍可在“打开当前草稿”中修改，且保留对话来源和同步时间。</div></details>
+        <details><summary>为什么联网搜到的文献没有立刻进入参考文献？</summary><div>联网结果只是候选。请在“证据库 → 候选审核队列”打开原始来源、核对并填写人工理由，批准后才会生成 <code>EVLIB_*</code> 权威记录。S9 参考文献只接受这些 active 记录。</div></details>
+        <details><summary>如何向方法库或公式库添加新内容？</summary><div>打开“方法与公式库 → 联网与审核”，可以让智能体联网发现候选，也可以人工新建。核对原始来源并批准后写入权威库；以后修改会形成新 revision，不会静默覆盖历史。</div></details>
         <details><summary>如何修改界面颜色和风格？</summary><div>点击右上角用户头像，选择“界面偏好”，在石墨极简、冷蓝研究和论文纸张中切换。选择即时生效并保存在当前浏览器。</div></details>
         <details><summary>后端暂时连接不上，会不会丢失页面操作？</summary><div>界面会显示“前端演示数据模式”。当前实现允许部分前端操作继续演示，但生产使用前必须确认后端同步成功；关键资产、审批和正式运行不能依赖仅浏览器状态。</div></details>
         <details><summary>发现引用或结果不一致怎么办？</summary><div>不要直接删除冲突。打开对应证据卡或运行产物，修正来源和口径，重新运行一致性检查，并在人工决定中记录处理理由。已进入核心主张的内容需在 G4 重新审核。</div></details>
@@ -406,7 +411,7 @@ collect export "output/main_results.xlsx", replace</pre>
 
       <footer class="footer">
         <div><strong>AI4MS · AI for Management Science</strong><br />研究者拥有最终决定权；智能体输出必须可核对、可修改、可拒绝。<br /><a data-deploy-link="guide" href="/ai4ms-user-guide.html">使用说明固定链接</a></div>
-        <div><span data-ai4ms-build-field="footer">文档 v0.1.0 · ai4ms · d2e5a628e32b</span></div>
+        <div><span data-ai4ms-build-field="footer">文档 v0.5.0 · ai4ms · 20440ad21480</span></div>
       </footer>
     </main>
   </div>

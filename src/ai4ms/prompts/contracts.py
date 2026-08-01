@@ -58,6 +58,56 @@ class GapDraft(StrictContract):
     counter_search: str = Field(min_length=3, max_length=500)
 
 
+class ResearchQuestionCandidateDraft(StrictContract):
+    question_id: str = Field(pattern=r"^RQ[0-9_-]+$")
+    statement: str = Field(min_length=5, max_length=800)
+    question_type: Literal[
+        "describe",
+        "explore",
+        "explain",
+        "causal",
+        "predict",
+        "optimize",
+        "synthesize",
+        "theory_build",
+    ]
+    management_decision: str = Field(min_length=3, max_length=600)
+    unit_of_analysis: str = Field(min_length=1, max_length=300)
+    outcome_or_objective: str = Field(min_length=3, max_length=500)
+    candidate_contribution: Literal[
+        "theory",
+        "method",
+        "data",
+        "context",
+        "design",
+        "practice",
+        "none",
+        "unknown",
+    ]
+    evidence_refs: list[str] = Field(default_factory=list, max_length=20)
+    feasibility_status: Literal["feasible", "conditional", "blocked", "unknown"]
+    data_needs: list[str] = Field(default_factory=list, max_length=12)
+    falsifier: str = Field(min_length=3, max_length=800)
+
+
+class ProblemDiagnosticDraft(StrictContract):
+    diagnostic_id: str = Field(pattern=r"^PD[0-9_-]+$")
+    dimension: Literal[
+        "problem_clarity",
+        "management_relevance",
+        "theoretical_relevance",
+        "novelty",
+        "feasibility",
+        "data_access",
+        "ethics",
+        "unit_alignment",
+    ]
+    status: Literal["pass", "warning", "blocking", "not_assessed"]
+    finding: str = Field(min_length=3, max_length=800)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=20)
+    required_action: str = Field(min_length=3, max_length=800)
+
+
 class ProblemDraft(StrictContract):
     reasoning_trace: ReasoningTraceDraft | None = None
     initial_idea: str = Field(min_length=3, max_length=4000)
@@ -70,6 +120,13 @@ class ProblemDraft(StrictContract):
     concepts: list[ConceptBlock] = Field(min_length=1, max_length=12)
     questions: list[str] = Field(min_length=1, max_length=5)
     candidate_gaps: list[GapDraft] = Field(default_factory=list, max_length=6)
+    question_candidates: list[ResearchQuestionCandidateDraft] = Field(
+        default_factory=list, max_length=8
+    )
+    problem_diagnostics: list[ProblemDiagnosticDraft] = Field(
+        default_factory=list, max_length=12
+    )
+    selection_tradeoffs: list[str] = Field(default_factory=list, max_length=12)
     counter_searches: list[str] = Field(default_factory=list, max_length=10)
     unknowns: list[str] = Field(default_factory=list, max_length=20)
 
@@ -156,11 +213,102 @@ class EvidenceGapDraft(StrictContract):
     coverage_limitations: list[str] = Field(min_length=1, max_length=10)
 
 
+class PaperExtractionLocatorDraft(StrictContract):
+    field_name: str = Field(min_length=1, max_length=120)
+    locator: str = Field(min_length=3, max_length=500)
+    evidence_level: Literal["metadata", "abstract", "full_text"]
+
+
+class PaperFindingDraft(StrictContract):
+    finding_id: str = Field(pattern=r"^PF[0-9_-]+$")
+    statement: str = Field(min_length=3, max_length=1000)
+    direction: Literal["supports", "contradicts", "qualifies", "descriptive", "not_reported"]
+    evidence_basis: Literal[
+        "explicit_full_text",
+        "explicit_abstract",
+        "abstract_inference",
+        "metadata_only",
+        "not_reported",
+    ]
+    locator: str = Field(min_length=3, max_length=500)
+    reported_values: list[str] = Field(default_factory=list, max_length=20)
+
+
+class PaperMethodProfileDraft(StrictContract):
+    research_design: str = Field(min_length=2, max_length=500)
+    unit_of_analysis: str = Field(min_length=1, max_length=300)
+    sample_and_context: str = Field(min_length=2, max_length=800)
+    data_sources: list[str] = Field(default_factory=list, max_length=15)
+    analysis_methods: list[str] = Field(default_factory=list, max_length=15)
+    identification_or_solution_logic: str = Field(min_length=3, max_length=1000)
+
+
+class PaperEvidenceCardDraft(StrictContract):
+    paper_id: str = Field(min_length=1, max_length=120)
+    evidence_level: Literal["metadata", "abstract", "full_text"]
+    core_problem: str = Field(min_length=3, max_length=1000)
+    theoretical_lenses: list[str] = Field(default_factory=list, max_length=12)
+    methodology: PaperMethodProfileDraft
+    findings: list[PaperFindingDraft] = Field(default_factory=list, max_length=20)
+    contributions: list[str] = Field(default_factory=list, max_length=15)
+    limitations: list[str] = Field(default_factory=list, max_length=15)
+    extraction_locators: list[PaperExtractionLocatorDraft] = Field(
+        min_length=1, max_length=30
+    )
+    unknowns: list[str] = Field(default_factory=list, max_length=20)
+
+
+class MethodComparisonDraft(StrictContract):
+    method_label: str = Field(min_length=2, max_length=200)
+    paper_ids: list[str] = Field(min_length=1, max_length=30)
+    strengths: list[str] = Field(min_length=1, max_length=12)
+    limitations: list[str] = Field(min_length=1, max_length=12)
+    suitable_contexts: list[str] = Field(default_factory=list, max_length=12)
+    identification_limits: list[str] = Field(default_factory=list, max_length=12)
+
+
+class LiteratureContradictionDraft(StrictContract):
+    issue: str = Field(min_length=5, max_length=800)
+    supporting_paper_ids: list[str] = Field(default_factory=list, max_length=30)
+    opposing_paper_ids: list[str] = Field(default_factory=list, max_length=30)
+    possible_explanations: list[str] = Field(min_length=1, max_length=12)
+    resolution_search: str = Field(min_length=3, max_length=500)
+
+
+class ReviewOutlineSectionDraft(StrictContract):
+    section_id: str = Field(pattern=r"^LR[0-9_-]+$")
+    title: str = Field(min_length=2, max_length=200)
+    purpose: str = Field(min_length=3, max_length=600)
+    paper_ids: list[str] = Field(min_length=1, max_length=40)
+    synthesis_focus: Literal[
+        "concept",
+        "theory",
+        "method",
+        "evidence",
+        "contradiction",
+        "gap",
+        "research_entry",
+    ]
+    required_contrasts: list[str] = Field(default_factory=list, max_length=12)
+
+
 class LiteratureSynthesisDraft(StrictContract):
     reasoning_trace: ReasoningTraceDraft | None = None
+    paper_evidence_cards: list[PaperEvidenceCardDraft] = Field(
+        default_factory=list, max_length=50
+    )
     research_streams: list[ResearchStreamDraft] = Field(min_length=1, max_length=8)
     syntheses: list[SynthesisStatementDraft] = Field(min_length=1, max_length=15)
+    method_comparisons: list[MethodComparisonDraft] = Field(
+        default_factory=list, max_length=12
+    )
+    contradictions: list[LiteratureContradictionDraft] = Field(
+        default_factory=list, max_length=12
+    )
     gap_candidates: list[EvidenceGapDraft] = Field(default_factory=list, max_length=8)
+    review_outline: list[ReviewOutlineSectionDraft] = Field(
+        default_factory=list, max_length=15
+    )
     recommended_next_steps: list[str] = Field(min_length=1, max_length=12)
     unknowns: list[str] = Field(default_factory=list, max_length=20)
     coverage_limits: list[str] = Field(min_length=1, max_length=15)
@@ -212,7 +360,7 @@ class TheoryDraft(StrictContract):
 
 
 class MethodOptionDraft(StrictContract):
-    method_id: str = Field(pattern=r"^M[0-9]{2}$")
+    method_id: str = Field(pattern=r"^M[A-Z0-9_-]{2,31}$")
     role: Literal["primary", "alternative", "supporting"]
     rationale: str = Field(min_length=5, max_length=600)
     fit_conditions: list[str] = Field(min_length=1, max_length=10)
@@ -234,7 +382,7 @@ class DesignDraft(StrictContract):
     unit_of_analysis: str = Field(min_length=1, max_length=300)
     estimand_or_objective: str = Field(min_length=5, max_length=800)
     method_options: list[MethodOptionDraft] = Field(min_length=2, max_length=8)
-    primary_method_id: str = Field(pattern=r"^M[0-9]{2}$")
+    primary_method_id: str = Field(pattern=r"^M[A-Z0-9_-]{2,31}$")
     assumptions: list[AssumptionDraft] = Field(min_length=1, max_length=20)
     falsification: list[str] = Field(min_length=1, max_length=12)
     threats_to_validity: list[str] = Field(min_length=1, max_length=15)
@@ -292,8 +440,14 @@ class ModelSpecificationDraft(StrictContract):
     specification_id: str = Field(pattern=r"^SPEC[0-9_-]+$")
     label: str = Field(min_length=2, max_length=160)
     role: Literal["primary", "secondary", "diagnostic", "exploratory"]
-    method_id: str | None = Field(default=None, pattern=r"^M[0-9]{2}$")
-    formula_id: str | None = Field(default=None, pattern=r"^[A-Z]+-[0-9]{2}$")
+    method_id: str | None = Field(
+        default=None,
+        pattern=r"^M[A-Z0-9_-]{2,31}$",
+    )
+    formula_id: str | None = Field(
+        default=None,
+        pattern=r"^[A-Z][A-Z0-9_-]{2,47}$",
+    )
     equation_or_objective: str = Field(min_length=3, max_length=1200)
     outcome_or_target: list[str] = Field(min_length=1, max_length=10)
     predictors_or_decisions: list[str] = Field(default_factory=list, max_length=30)
@@ -488,14 +642,103 @@ class DeliveryOutlineSectionDraft(StrictContract):
     evidence_ids: list[str] = Field(default_factory=list, max_length=30)
 
 
+class AcademicOutputProfileDraft(StrictContract):
+    document_type: Literal[
+        "management_research_article",
+        "research_report",
+        "thesis_chapter",
+        "literature_review",
+        "policy_brief",
+    ]
+    research_paradigm: Literal[
+        "empirical_quantitative",
+        "qualitative",
+        "mixed_methods",
+        "optimization",
+        "simulation",
+        "theory_build",
+        "systematic_review",
+        "other",
+    ]
+    audience: str = Field(min_length=2, max_length=300)
+    language: Literal["zh-CN", "en", "bilingual"]
+    citation_style: Literal[
+        "gbt7714_numeric",
+        "apa7_author_date",
+        "chicago_author_date",
+        "journal_custom",
+    ]
+    journal_or_institution_requirements: list[str] = Field(
+        default_factory=list, max_length=20
+    )
+    common_method_bias_applicability: Literal[
+        "required",
+        "not_applicable",
+        "undetermined",
+    ]
+
+
+class ManuscriptSectionDraft(StrictContract):
+    section_id: str = Field(pattern=r"^SEC[0-9_-]+$")
+    title: str = Field(min_length=1, max_length=200)
+    purpose: str = Field(min_length=3, max_length=600)
+    body_markdown: str = Field(default="", max_length=20_000)
+    claim_ids: list[str] = Field(default_factory=list, max_length=30)
+    evidence_ids: list[str] = Field(default_factory=list, max_length=50)
+    citation_paper_ids: list[str] = Field(default_factory=list, max_length=80)
+    citation_evidence_ids: list[str] = Field(default_factory=list, max_length=80)
+    content_status: Literal["draft", "needs_evidence", "blocked"]
+    unresolved_items: list[str] = Field(default_factory=list, max_length=20)
+
+
+class LogicClosureDraft(StrictContract):
+    link_id: str = Field(pattern=r"^LC[0-9_-]+$")
+    research_question_refs: list[str] = Field(min_length=1, max_length=8)
+    method_or_design_refs: list[str] = Field(min_length=1, max_length=15)
+    claim_ids: list[str] = Field(min_length=1, max_length=20)
+    conclusion_ids: list[str] = Field(min_length=1, max_length=12)
+    closure_status: Literal["closed", "partial", "blocked"]
+    missing_link: str = Field(default="", max_length=800)
+
+
+class OutputSelfReviewIssueDraft(StrictContract):
+    issue_id: str = Field(pattern=r"^OI[0-9_-]+$")
+    severity: Literal["must_fix", "should_improve", "note"]
+    dimension: Literal[
+        "structure",
+        "logic",
+        "variable_consistency",
+        "data_consistency",
+        "citation",
+        "academic_style",
+        "format",
+        "ethics_disclosure",
+    ]
+    location: str = Field(min_length=1, max_length=300)
+    finding: str = Field(min_length=3, max_length=1000)
+    required_action: str = Field(min_length=3, max_length=1000)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=20)
+
+
 class DeliveryDraft(StrictContract):
     reasoning_trace: ReasoningTraceDraft | None = None
     title: str = Field(min_length=3, max_length=240)
+    document_profile: AcademicOutputProfileDraft | None = None
+    abstract: str = Field(default="", max_length=3000)
+    keywords: list[str] = Field(default_factory=list, max_length=10)
     executive_summary: str = Field(min_length=20, max_length=3000)
     conclusions: list[DeliveryConclusionDraft] = Field(min_length=1, max_length=20)
     policy_implications: list[PolicyImplicationDraft] = Field(default_factory=list, max_length=15)
     outline: list[DeliveryOutlineSectionDraft] = Field(min_length=3, max_length=20)
+    manuscript_sections: list[ManuscriptSectionDraft] = Field(
+        default_factory=list, max_length=20
+    )
+    logic_closure: list[LogicClosureDraft] = Field(default_factory=list, max_length=20)
+    author_self_review: list[OutputSelfReviewIssueDraft] = Field(
+        default_factory=list, max_length=40
+    )
     reference_paper_ids: list[str] = Field(default_factory=list, max_length=80)
+    reference_evidence_ids: list[str] = Field(default_factory=list, max_length=80)
     limitations: list[str] = Field(min_length=1, max_length=25)
     reproducibility_notes: list[str] = Field(min_length=1, max_length=20)
     disclosure: str = Field(min_length=5, max_length=1600)

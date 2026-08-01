@@ -67,8 +67,35 @@ def _project() -> dict:
             {"section_id": "SEC3", "title": "结论", "purpose": "形成有限结论。", "claim_ids": ["C1"], "evidence_ids": ["EV1"]},
         ],
         "reference_paper_ids": ["paper_a"],
+        "reference_evidence_ids": ["EVLIB_A", "EVLIB_DATA"],
         "approved_claims": ["C1"],
-        "references": [{"paper_id": "paper_a", "title": "Paper A", "authors": ["Li"], "year": 2025}],
+        "references": [
+            {
+                "paper_id": "paper_a",
+                "evidence_id": "EVLIB_A",
+                "evidence_type": "paper",
+                "evidence_api_url": (
+                    "/api/v1/projects/prj_export/"
+                    "evidence-library/EVLIB_A"
+                ),
+                "title": "Paper A",
+                "authors": ["Li"],
+                "year": 2025,
+            },
+            {
+                "evidence_id": "EVLIB_DATA",
+                "evidence_type": "data_study",
+                "evidence_api_url": (
+                    "/api/v1/projects/prj_export/"
+                    "evidence-library/EVLIB_DATA"
+                ),
+                "title": "企业创新统计数据库",
+                "authors": ["国家统计机构"],
+                "year": 2025,
+                "venue": "官方数据门户",
+                "url": "https://example.org/data",
+            },
+        ],
         "limitations": ["没有本地估计。"],
         "reproducibility_notes": ["结论保留 claim_id 与 evidence_id。"],
         "disclosure": "报告为 AI 辅助草稿，最终内容由研究者审批。",
@@ -84,7 +111,57 @@ def _project() -> dict:
         "initial_idea": "AI 采用是否影响企业创新？",
         "stages": [
             {"key": "problem", "code": "S0", "title": "问题识别", "status": "approved", "revision": 1, "content_hash": "0" * 64, "content": {}},
-            {"key": "literature", "code": "S1", "title": "文献综述", "status": "approved", "revision": 2, "content_hash": "1" * 64, "content": {"papers": [{"paper_id": "paper_a", "title": "Paper A", "authors": ["Li"], "year": 2025}]}},
+            {
+                "key": "literature",
+                "code": "S1",
+                "title": "文献综述",
+                "status": "approved",
+                "revision": 2,
+                "content_hash": "1" * 64,
+                "content": {
+                    "papers": [
+                        {
+                            "paper_id": "paper_a",
+                            "title": "Paper A",
+                            "authors": ["Li"],
+                            "year": 2025,
+                            "url": "https://example.org/paper-a",
+                        }
+                    ],
+                    "evidence_library": [
+                        {
+                            "evidence_id": "EVLIB_A",
+                            "source_candidate_id": "EC_A",
+                            "evidence_type": "paper",
+                            "status": "active",
+                            "revision": 1,
+                            "paper_id": "paper_a",
+                            "title": "Paper A",
+                            "authors": ["Li"],
+                            "year": 2025,
+                            "url": "https://example.org/paper-a",
+                            "evidence_level": "abstract",
+                            "content_hash": "a" * 64,
+                            "approved_by": "human",
+                        },
+                        {
+                            "evidence_id": "EVLIB_DATA",
+                            "source_candidate_id": "EC_DATA",
+                            "evidence_type": "data_study",
+                            "status": "active",
+                            "revision": 1,
+                            "title": "企业创新统计数据库",
+                            "authors": ["国家统计机构"],
+                            "year": 2025,
+                            "venue": "官方数据门户",
+                            "url": "https://example.org/data",
+                            "evidence_level": "source_page",
+                            "content_hash": "b" * 64,
+                            "approved_by": "human",
+                        },
+                    ],
+                },
+            },
             {"key": "analysis", "code": "S6", "title": "结果分析", "status": "approved", "revision": 3, "content_hash": "6" * 64, "content": {"runs": [{"run_id": "run_1", "status": "succeeded", "reason_code": "completed", "exit_code": 0, "do_file_sha256": "a" * 64, "structured_results": [{"name": "beta", "value": 0.2}], "output_artifacts": [{"path": "artifacts/runs/run_1/results.csv"}, {"path": "artifacts/runs/run_1/raw.dta"}], "manifest_path": "artifacts/runs/run_1/manifest.json"}]}},
             {"key": "robustness", "code": "S7", "title": "稳健性检验", "status": "approved", "revision": 1, "content_hash": "7" * 64, "content": {"robustness_matrix": []}},
             {"key": "evidence", "code": "S8", "title": "机制与异质性", "status": "approved", "revision": 2, "content_hash": "8" * 64, "content": evidence_content},
@@ -106,6 +183,7 @@ def test_delivery_export_is_traceable_visual_and_excludes_raw_data(tmp_path):
     record = service.export(project)
     export_dir = tmp_path / "prj_export" / record["visual_report_path"].rsplit("/", 1)[0]
     html = (export_dir / "report.html").read_text(encoding="utf-8")
+    markdown = (export_dir / "report.md").read_text(encoding="utf-8")
     manifest = json.loads((export_dir / "manifest.json").read_text(encoding="utf-8"))
 
     assert "Claim-Evidence 可追溯矩阵" in html
@@ -116,8 +194,16 @@ def test_delivery_export_is_traceable_visual_and_excludes_raw_data(tmp_path):
     assert "data-estimate-row" in html
     assert "cdn.jsdelivr.net" not in html
     assert "<script>alert(1)</script>" not in html
-    assert manifest["schema_version"] == "ai4ms.research-package.v2"
+    assert "[EVLIB_DATA]" in markdown
+    assert "[DB/OL]" in markdown
+    assert (
+        "[证据库:EVLIB_DATA]"
+        "(/api/v1/projects/prj_export/evidence-library/EVLIB_DATA)"
+        in markdown
+    )
     assert manifest["source_revisions"]["evidence"]["content_hash"] == "8" * 64
+    assert manifest["schema_version"] == "ai4ms.research-package.v2"
+    assert manifest["academic_output_quality"]["status"] == "ready_with_advisories"
     assert manifest["data_policy"]["raw_data_included"] is False
     assert all(len(item["sha256"]) == 64 for item in manifest["files"])
     assert record["word_report_path"].endswith("/report.docx")
@@ -136,6 +222,7 @@ def test_delivery_export_is_traceable_visual_and_excludes_raw_data(tmp_path):
         names = set(archive.namelist())
     assert "artifacts/runs/run_1/results.csv" in names
     assert "artifacts/runs/run_1/manifest.json" in names
+    assert "quality/output_quality.json" in names
     assert not any(name.endswith(".dta") for name in names)
     assert {
         "report/report.html",

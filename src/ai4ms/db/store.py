@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from collections.abc import Iterator
@@ -32,6 +33,16 @@ def _now() -> str:
     from datetime import datetime, timezone
 
     return datetime.now(timezone.utc).isoformat()
+
+
+def _json_hash(value: dict[str, Any]) -> str:
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 class ProjectStore:
@@ -113,12 +124,61 @@ class ProjectStore:
                     updated_at TEXT NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS knowledge_candidates (
+                    candidate_id TEXT PRIMARY KEY,
+                    kind TEXT NOT NULL CHECK(kind IN ('method', 'formula')),
+                    revision INTEGER NOT NULL DEFAULT 1,
+                    status TEXT NOT NULL
+                        CHECK(status IN ('pending', 'approved', 'rejected', 'changes_requested')),
+                    query TEXT NOT NULL,
+                    proposed_content_json TEXT NOT NULL,
+                    source_links_json TEXT NOT NULL,
+                    search_trace_json TEXT NOT NULL,
+                    review_json TEXT,
+                    promoted_record_id TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS knowledge_records (
+                    record_id TEXT PRIMARY KEY,
+                    kind TEXT NOT NULL CHECK(kind IN ('method', 'formula')),
+                    current_revision INTEGER NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('active', 'archived')),
+                    source_candidate_id TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (source_candidate_id)
+                        REFERENCES knowledge_candidates(candidate_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS knowledge_record_revisions (
+                    revision_id TEXT PRIMARY KEY,
+                    record_id TEXT NOT NULL,
+                    kind TEXT NOT NULL CHECK(kind IN ('method', 'formula')),
+                    revision INTEGER NOT NULL,
+                    content_json TEXT NOT NULL,
+                    content_hash TEXT NOT NULL,
+                    change_reason TEXT NOT NULL,
+                    author_type TEXT NOT NULL CHECK(author_type = 'human'),
+                    created_at TEXT NOT NULL,
+                    UNIQUE(record_id, revision),
+                    FOREIGN KEY (record_id)
+                        REFERENCES knowledge_records(record_id) ON DELETE CASCADE
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_stage_revisions_project
                     ON stage_revisions(project_id, stage_key, revision DESC);
                 CREATE INDEX IF NOT EXISTS idx_approval_events_project
                     ON approval_events(project_id, stage_key, created_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_data_assets_project
                     ON data_assets(project_id, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_knowledge_candidates_kind
+                    ON knowledge_candidates(kind, status, updated_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_knowledge_records_kind
+                    ON knowledge_records(kind, status, updated_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_knowledge_record_revisions
+                    ON knowledge_record_revisions(record_id, revision DESC);
                 """
             )
             timestamp = _now()
@@ -581,6 +641,470 @@ class ProjectStore:
                 (current_stage, project_status, timestamp, project_id),
             )
         return self.get_project(project_id)
+
+    def create_knowledge_candidate(
+        self,
+        *,
+        candidate_id: str,
+        kind: str,
+        query: str,
+        proposed_content: dict[str, Any],
+        source_links: list[dict[str, Any]],
+        search_trace: dict[str, Any],
+    ) -> dict[str, Any]:
+        timestamp = _now()
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO knowledge_candidates
+                    (candidate_id, kind, revision, status, query,
+                     proposed_content_json, source_links_json,
+                     search_trace_json, review_json, promoted_record_id,
+                     created_at, updated_at)
+                VALUES (?, ?, 1, 'pending', ?, ?, ?, ?, NULL, NULL, ?, ?)
+                """,
+                (
+                    candidate_id,
+                    kind,
+                    query,
+                    json.dumps(
+                        proposed_content,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    json.dumps(
+                        source_links,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    json.dumps(
+                        search_trace,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    timestamp,
+                    timestamp,
+                ),
+            )
+        return self.get_knowledge_candidate(candidate_id)
+
+    def list_knowledge_candidates(
+        self,
+        kind: str | None = None,
+        status: str | None = None,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        parameters: list[str] = []
+        if kind:
+            clauses.append("kind = ?")
+            parameters.append(kind)
+        if status:
+            clauses.append("status = ?")
+            parameters.append(status)
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT * FROM knowledge_candidates
+                {where}
+                ORDER BY updated_at DESC, candidate_id
+                """,
+                parameters,
+            ).fetchall()
+        return [self._decode_knowledge_candidate(row) for row in rows]
+
+    def get_knowledge_candidate(self, candidate_id: str) -> dict[str, Any]:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM knowledge_candidates WHERE candidate_id = ?",
+                (candidate_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(candidate_id)
+        return self._decode_knowledge_candidate(row)
+
+    def review_knowledge_candidate(
+        self,
+        *,
+        candidate_id: str,
+        decision: str,
+        reason: str,
+        edits: dict[str, Any],
+        expected_revision: int,
+        promoted_record_id: str | None,
+    ) -> dict[str, Any]:
+        timestamp = _now()
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM knowledge_candidates WHERE candidate_id = ?",
+                (candidate_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(candidate_id)
+            current_revision = int(row["revision"])
+            if current_revision != expected_revision:
+                raise RevisionConflictError(
+                    expected_revision,
+                    current_revision,
+                )
+            proposed = json.loads(str(row["proposed_content_json"]))
+            proposed.update(edits)
+            status = {
+                "approve": "approved",
+                "reject": "rejected",
+                "request_changes": "changes_requested",
+            }[decision]
+            review = {
+                "decision": decision,
+                "reason": reason,
+                "reviewed_by": "human",
+                "reviewed_at": timestamp,
+            }
+            conn.execute(
+                """
+                UPDATE knowledge_candidates
+                SET revision = ?, status = ?, proposed_content_json = ?,
+                    review_json = ?, promoted_record_id = ?, updated_at = ?
+                WHERE candidate_id = ?
+                """,
+                (
+                    current_revision + 1,
+                    status,
+                    json.dumps(
+                        proposed,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    ),
+                    json.dumps(review, ensure_ascii=False, sort_keys=True),
+                    promoted_record_id,
+                    timestamp,
+                    candidate_id,
+                ),
+            )
+        return self.get_knowledge_candidate(candidate_id)
+
+    def promote_knowledge_candidate(
+        self,
+        *,
+        candidate_id: str,
+        expected_revision: int,
+        reason: str,
+        content: dict[str, Any],
+        record_id: str,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """Approve a candidate and write its authority revision atomically."""
+
+        timestamp = _now()
+        with self._connect() as conn:
+            candidate = conn.execute(
+                "SELECT * FROM knowledge_candidates WHERE candidate_id = ?",
+                (candidate_id,),
+            ).fetchone()
+            if candidate is None:
+                raise KeyError(candidate_id)
+            current_candidate_revision = int(candidate["revision"])
+            if current_candidate_revision != expected_revision:
+                raise RevisionConflictError(
+                    expected_revision,
+                    current_candidate_revision,
+                )
+
+            existing_record_id = str(
+                candidate["promoted_record_id"] or ""
+            ).strip()
+            resolved_record_id = existing_record_id or record_id
+            record = conn.execute(
+                "SELECT * FROM knowledge_records WHERE record_id = ?",
+                (resolved_record_id,),
+            ).fetchone()
+            if existing_record_id and record is None:
+                raise ValueError(
+                    "promoted knowledge record is missing: "
+                    f"{existing_record_id}"
+                )
+            if record is not None and not existing_record_id:
+                raise ValueError(
+                    f"knowledge record already exists: {resolved_record_id}"
+                )
+            kind = str(candidate["kind"])
+            if record is not None and str(record["kind"]) != kind:
+                raise ValueError(
+                    f"knowledge record kind mismatch: {resolved_record_id}"
+                )
+
+            if record is None:
+                record_revision = 1
+                conn.execute(
+                    """
+                    INSERT INTO knowledge_records
+                        (record_id, kind, current_revision, status,
+                         source_candidate_id, created_at, updated_at)
+                    VALUES (?, ?, 1, 'active', ?, ?, ?)
+                    """,
+                    (
+                        resolved_record_id,
+                        kind,
+                        candidate_id,
+                        timestamp,
+                        timestamp,
+                    ),
+                )
+            else:
+                record_revision = int(record["current_revision"]) + 1
+                conn.execute(
+                    """
+                    UPDATE knowledge_records
+                    SET current_revision = ?, status = 'active',
+                        updated_at = ?
+                    WHERE record_id = ?
+                    """,
+                    (
+                        record_revision,
+                        timestamp,
+                        resolved_record_id,
+                    ),
+                )
+
+            conn.execute(
+                """
+                INSERT INTO knowledge_record_revisions
+                    (revision_id, record_id, kind, revision, content_json,
+                     content_hash, change_reason, author_type, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'human', ?)
+                """,
+                (
+                    f"krev_{uuid4().hex[:12]}",
+                    resolved_record_id,
+                    kind,
+                    record_revision,
+                    json.dumps(content, ensure_ascii=False, sort_keys=True),
+                    _json_hash(content),
+                    reason,
+                    timestamp,
+                ),
+            )
+            review = {
+                "decision": "approve",
+                "reason": reason,
+                "reviewed_by": "human",
+                "reviewed_at": timestamp,
+            }
+            conn.execute(
+                """
+                UPDATE knowledge_candidates
+                SET revision = ?, status = 'approved',
+                    proposed_content_json = ?, review_json = ?,
+                    promoted_record_id = ?, updated_at = ?
+                WHERE candidate_id = ?
+                """,
+                (
+                    current_candidate_revision + 1,
+                    json.dumps(content, ensure_ascii=False, sort_keys=True),
+                    json.dumps(review, ensure_ascii=False, sort_keys=True),
+                    resolved_record_id,
+                    timestamp,
+                    candidate_id,
+                ),
+            )
+        return (
+            self.get_knowledge_candidate(candidate_id),
+            self.get_knowledge_record(resolved_record_id),
+        )
+
+    @staticmethod
+    def _decode_knowledge_candidate(row: sqlite3.Row) -> dict[str, Any]:
+        item = dict(row)
+        item["proposed_content"] = json.loads(
+            str(item.pop("proposed_content_json"))
+        )
+        item["source_links"] = json.loads(str(item.pop("source_links_json")))
+        item["search_trace"] = json.loads(str(item.pop("search_trace_json")))
+        raw_review = item.pop("review_json")
+        item["review"] = json.loads(str(raw_review)) if raw_review else None
+        return item
+
+    def create_knowledge_record(
+        self,
+        *,
+        record_id: str,
+        kind: str,
+        content: dict[str, Any],
+        change_reason: str,
+        source_candidate_id: str | None = None,
+    ) -> dict[str, Any]:
+        timestamp = _now()
+        content_hash = _json_hash(content)
+        with self._connect() as conn:
+            if conn.execute(
+                "SELECT 1 FROM knowledge_records WHERE record_id = ?",
+                (record_id,),
+            ).fetchone():
+                raise ValueError(
+                    f"knowledge record already exists: {record_id}"
+                )
+            conn.execute(
+                """
+                INSERT INTO knowledge_records
+                    (record_id, kind, current_revision, status,
+                     source_candidate_id, created_at, updated_at)
+                VALUES (?, ?, 1, 'active', ?, ?, ?)
+                """,
+                (
+                    record_id,
+                    kind,
+                    source_candidate_id,
+                    timestamp,
+                    timestamp,
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO knowledge_record_revisions
+                    (revision_id, record_id, kind, revision, content_json,
+                     content_hash, change_reason, author_type, created_at)
+                VALUES (?, ?, ?, 1, ?, ?, ?, 'human', ?)
+                """,
+                (
+                    f"krev_{uuid4().hex[:12]}",
+                    record_id,
+                    kind,
+                    json.dumps(content, ensure_ascii=False, sort_keys=True),
+                    content_hash,
+                    change_reason,
+                    timestamp,
+                ),
+            )
+        return self.get_knowledge_record(record_id)
+
+    def list_knowledge_records(
+        self,
+        kind: str | None = None,
+        *,
+        include_archived: bool = False,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        parameters: list[str] = []
+        if kind:
+            clauses.append("r.kind = ?")
+            parameters.append(kind)
+        if not include_archived:
+            clauses.append("r.status = 'active'")
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT r.*, v.content_json, v.content_hash,
+                       v.change_reason, v.author_type,
+                       v.created_at AS revision_created_at
+                FROM knowledge_records r
+                JOIN knowledge_record_revisions v
+                  ON v.record_id = r.record_id
+                 AND v.revision = r.current_revision
+                {where}
+                ORDER BY r.kind, r.record_id
+                """,
+                parameters,
+            ).fetchall()
+        return [self._decode_knowledge_record(row) for row in rows]
+
+    def get_knowledge_record(self, record_id: str) -> dict[str, Any]:
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT r.*, v.content_json, v.content_hash,
+                       v.change_reason, v.author_type,
+                       v.created_at AS revision_created_at
+                FROM knowledge_records r
+                JOIN knowledge_record_revisions v
+                  ON v.record_id = r.record_id
+                 AND v.revision = r.current_revision
+                WHERE r.record_id = ?
+                """,
+                (record_id,),
+            ).fetchone()
+        if row is None:
+            raise KeyError(record_id)
+        return self._decode_knowledge_record(row)
+
+    @staticmethod
+    def _decode_knowledge_record(row: sqlite3.Row) -> dict[str, Any]:
+        item = dict(row)
+        item["revision"] = int(item.pop("current_revision"))
+        item["content"] = json.loads(str(item.pop("content_json")))
+        return item
+
+    def update_knowledge_record(
+        self,
+        *,
+        record_id: str,
+        content: dict[str, Any],
+        expected_revision: int,
+        change_reason: str,
+    ) -> dict[str, Any]:
+        timestamp = _now()
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM knowledge_records WHERE record_id = ?",
+                (record_id,),
+            ).fetchone()
+            if row is None:
+                raise KeyError(record_id)
+            current_revision = int(row["current_revision"])
+            if current_revision != expected_revision:
+                raise RevisionConflictError(
+                    expected_revision,
+                    current_revision,
+                )
+            revision = current_revision + 1
+            conn.execute(
+                """
+                INSERT INTO knowledge_record_revisions
+                    (revision_id, record_id, kind, revision, content_json,
+                     content_hash, change_reason, author_type, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'human', ?)
+                """,
+                (
+                    f"krev_{uuid4().hex[:12]}",
+                    record_id,
+                    str(row["kind"]),
+                    revision,
+                    json.dumps(content, ensure_ascii=False, sort_keys=True),
+                    _json_hash(content),
+                    change_reason,
+                    timestamp,
+                ),
+            )
+            conn.execute(
+                """
+                UPDATE knowledge_records
+                SET current_revision = ?, updated_at = ?
+                WHERE record_id = ?
+                """,
+                (revision, timestamp, record_id),
+            )
+        return self.get_knowledge_record(record_id)
+
+    def list_knowledge_record_revisions(
+        self,
+        record_id: str,
+    ) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            if conn.execute(
+                "SELECT 1 FROM knowledge_records WHERE record_id = ?",
+                (record_id,),
+            ).fetchone() is None:
+                raise KeyError(record_id)
+            rows = conn.execute(
+                """
+                SELECT revision_id, record_id, kind, revision, content_hash,
+                       change_reason, author_type, created_at
+                FROM knowledge_record_revisions
+                WHERE record_id = ?
+                ORDER BY revision DESC
+                """,
+                (record_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:

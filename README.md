@@ -43,7 +43,9 @@ S0-S9 十阶段已经进入同一个项目工作台，当前基础能力包括�
 
 当前 S0-S9 均支持真实模型生成。S0-S1 与 S7-S8 已接入基于论文 **AOrchestra: Automating Sub-Agent Creation for Agentic Orchestration** 的动态 SubAgent 编排：S0-S1 并行执行边界澄清、检索侦察、反向检索和综述，S7-S8 并行执行稳健性、负结果、Claim-Evidence 与过度主张审查。S7-S8 的 SubAgent 只有既有项目资产只读权限，不能联网或启动 Runner；AO 报告还必须经过阶段 Pydantic 契约和 ID 白名单，才能保存为 `needs_review` 的 agent revision。
 
-S1 可执行多源检索、去重与快照，S2 构建理论，S3-S5 从方法、数据源和公式库形成研究设计、数据合同与分析计划；S6 支持 `.dta` 上传、资产登记、SHA-256、元信息读取，并通过 HMAC 签名 Run Bundle 连接研究者本机 Stata Local Runner，回收结构化结果、数据签名、日志和表图；S7 生成受 Run 证据约束的稳健性矩阵；S8 形成主张、证据、假设、机制、异质性和反证图谱；S9 只从 G4 已批准主张生成结论，并确定性导出可交互 HTML、可编辑 DOCX、固定版 PDF、图表、Mermaid 源码和独立 Stata 复现包。十个阶段批准前都执行结构契约校验，S1 还必须具有真实检索快照和论文记录。
+S0 会并列生成可比较的问题候选与诊断，由研究者选择并绑定候选集指纹；S1 的模型检索计划需人工批准后才能自动执行。智能体找到的文献和数据研究先进入候选队列，研究者核对、修改并批准后生成 `EVLIB_*` 权威证据；综述、主张与参考文献只读取 active 权威记录。S2 构建理论，S3-S5 从方法、数据源和公式库形成研究设计、数据合同与分析计划；方法与公式也支持联网候选、人工审核、人工新建和版本化修改。S6 支持 `.dta` 上传、资产登记、SHA-256、元信息读取，并通过 HMAC 签名 Run Bundle 连接研究者本机 Stata Local Runner，回收结构化结果、数据签名、日志和表图；S7 生成受 Run 证据约束的稳健性矩阵；S8 形成主张、证据、假设、机制、异质性和反证图谱；S9 只从 G4 已批准主张与 active 权威论文、数据研究生成可编辑分节正文，每篇 `paper_id` 必须绑定 `EVLIB_*`，数据研究直接使用 `EVLIB_*`，通过引用双向对应和逻辑闭环质量门后，确定性导出可交互 HTML、质量报告、manifest、可编辑 DOCX、固定版 PDF、图表、Mermaid 源码、独立 Stata 复现包和 ZIP 研究包 v2。十个阶段批准前都执行结构契约校验，S1 还必须具有真实检索快照和论文记录。
+
+所有模型阶段草稿、智能体回答、知识适配评估和联网发现报告都使用 `ai4ms.ai-report.v1`，包含执行摘要、公开可审计研究依据、来源、资产 ID、限制、人工决定与生成来源；不请求或保存模型私密思维链。
 
 阶段智能体对话支持“自动 / 联网 / 关闭”三种搜索模式。联网时会并行调用 Serper、DuckDuckGo 与开放学术检索源，读取和去重高排名页面，再把编号来源、检索轨迹和快照随回答保存；涉及官方统计指标时可额外调用只读的 Google Data Commons MCP。MCP 未配置或单个检索源失败时，回答会降级并保留失败记录，不会把未取得的材料伪装成来源。
 
@@ -158,6 +160,8 @@ SQLite、`.dta` 项目资产和 HTML 报告通过 Docker volume 持久化。比�
 - [开发、测试与协作](docs/DEVELOPMENT.md)
 - [Docker 部署](docs/DEPLOYMENT.md)
 - [提示词工程](docs/PROMPT_ENGINEERING.md)
+- [Paper-Agent 与 thesis-writer 适配说明](docs/ai4ms/PAPER_AGENT_THESIS_WRITER_ADAPTATION_2026-07-26.md)
+- [证据与知识治理方案](docs/ai4ms/EVIDENCE_KNOWLEDGE_GOVERNANCE_V1.md)
 - [Stata Local Runner](docs/RUNNER.md)
 - [智能体应用设计文档（评委版 HTML）](docs/competition/AI4MS_AGENT_APPLICATION_DESIGN.html)
 
